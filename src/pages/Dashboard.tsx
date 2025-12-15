@@ -76,15 +76,15 @@ export function Dashboard() {
       if (newStreak > previousStreak) {
         // Check for trophy milestones
         if (newStreak === 3) {
-          dispatch(triggerCelebration('Bronze Trophy Unlocked! 🥉'));
+          dispatch(triggerCelebration('Bronzen Trofee Ontgrendeld! 🥉'));
         } else if (newStreak === 7) {
-          dispatch(triggerCelebration('Silver Trophy Unlocked! 🥈'));
+          dispatch(triggerCelebration('Zilveren Trofee Ontgrendeld! 🥈'));
         } else if (newStreak === 14) {
-          dispatch(triggerCelebration('Gold Trophy Unlocked! 🥇'));
+          dispatch(triggerCelebration('Gouden Trofee Ontgrendeld! 🥇'));
         } else if (newStreak === 30) {
-          dispatch(triggerCelebration('Diamond Trophy Unlocked! 💎'));
+          dispatch(triggerCelebration('Diamanten Trofee Ontgrendeld! 💎'));
         } else {
-          dispatch(triggerCelebration(`${newStreak} day streak! 🔥`));
+          dispatch(triggerCelebration(`${newStreak} dagen streak! 🔥`));
         }
       }
     }
@@ -102,7 +102,7 @@ export function Dashboard() {
 
     // Celebration for goal reached
     if (checkInHabit.goalValue && value >= checkInHabit.goalValue) {
-      dispatch(triggerCelebration('Goal reached! 🎯'));
+      dispatch(triggerCelebration('Doel behaald! 🎯'));
     }
 
     setCheckInHabit(null);
@@ -111,7 +111,7 @@ export function Dashboard() {
   const handleAddHabit = async (preset: PresetHabit) => {
     await dispatch(createHabitFromPreset(preset));
     dispatch(setShowAddHabitModal(false));
-    dispatch(triggerCelebration(`${preset.name} added! Let's go! 🚀`));
+    dispatch(triggerCelebration(`${preset.name} toegevoegd! Let's go! 🚀`));
   };
 
   const handleViewDetails = (habit: Habit) => {
@@ -136,7 +136,7 @@ export function Dashboard() {
             <h1 className="font-display font-bold text-2xl text-white">
               Habit<span className="text-vapor-cyan">Racer</span>
             </h1>
-            <p className="text-sm text-white/40">Race against yourself</p>
+            <p className="text-sm text-white/40">Race tegen jezelf</p>
           </div>
           <button
             onClick={() => navigate('/settings')}
@@ -157,9 +157,9 @@ export function Dashboard() {
             className="text-center py-16"
           >
             <div className="text-6xl mb-4">🏁</div>
-            <h2 className="text-xl font-semibold text-white mb-2">Ready to race?</h2>
+            <h2 className="text-xl font-semibold text-white mb-2">Klaar om te racen?</h2>
             <p className="text-white/60 mb-6">
-              Add your first habit to start competing against yourself
+              Voeg je eerste gewoonte toe om tegen jezelf te strijden
             </p>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -167,7 +167,7 @@ export function Dashboard() {
               onClick={() => dispatch(setShowAddHabitModal(true))}
               className="px-6 py-3 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white font-semibold rounded-xl glow-button"
             >
-              Add Your First Habit
+              Voeg Je Eerste Gewoonte Toe
             </motion.button>
           </motion.div>
         ) : (

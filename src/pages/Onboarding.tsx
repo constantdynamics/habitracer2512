@@ -58,29 +58,29 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         🏎️
       </motion.div>
       <h1 className="font-display text-3xl font-bold text-white mb-4">
-        Welcome to <span className="text-vapor-cyan">HabitRacer</span>
+        Welkom bij <span className="text-vapor-cyan">HabitRacer</span>
       </h1>
       <p className="text-white/60 text-lg mb-8">
-        Build better habits by racing against your own past performances. No more boring streak counters!
+        Bouw betere gewoontes door te racen tegen je eigen prestaties. Geen saaie streak tellers meer!
       </p>
       <div className="space-y-4 text-left max-w-sm mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-vapor-pink/20 flex items-center justify-center">
             <Zap className="w-5 h-5 text-vapor-pink" />
           </div>
-          <span className="text-white/80">Compete against yourself</span>
+          <span className="text-white/80">Strijd tegen jezelf</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-vapor-cyan/20 flex items-center justify-center">
             <Trophy className="w-5 h-5 text-vapor-cyan" />
           </div>
-          <span className="text-white/80">Earn trophies for streaks</span>
+          <span className="text-white/80">Verdien trofeeën voor streaks</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-vapor-gold/20 flex items-center justify-center">
             <Target className="w-5 h-5 text-vapor-gold" />
           </div>
-          <span className="text-white/80">Track your progress visually</span>
+          <span className="text-white/80">Volg je voortgang visueel</span>
         </div>
       </div>
     </motion.div>,
@@ -94,7 +94,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       className="text-center px-6"
     >
       <h2 className="font-display text-2xl font-bold text-white mb-6">
-        How the Race Works
+        Hoe de Race Werkt
       </h2>
       <div className="bg-vapor-darker/50 rounded-xl p-6 mb-6">
         <div className="flex items-center justify-center gap-2 mb-4">
@@ -104,63 +104,63 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
             className="w-8 h-8 rounded bg-red-500"
-            title="Ahead of you"
+            title="Voor je"
           />
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
             className="w-8 h-8 rounded bg-red-500"
-            title="Ahead of you"
+            title="Voor je"
           />
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3 }}
             className="w-8 h-8 rounded bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.8)] race-block-animate"
-            title="You"
+            title="Jij"
           />
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.4 }}
             className="w-8 h-8 rounded bg-green-500"
-            title="Behind you"
+            title="Achter je"
           />
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.5 }}
             className="w-8 h-8 rounded bg-green-500 ring-2 ring-vapor-gold"
-            title="Your record"
+            title="Je record"
           />
         </div>
-        <div className="text-sm text-white/60">Position 3 of 5</div>
+        <div className="text-sm text-white/60">Positie 3 van 5</div>
       </div>
 
       <div className="space-y-4 text-left max-w-sm mx-auto">
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 rounded bg-red-500 flex-shrink-0 mt-1" />
           <span className="text-white/80">
-            <strong className="text-red-400">Red</strong> = Past performances you need to beat
+            <strong className="text-red-400">Rood</strong> = Prestaties die je nog moet verslaan
           </span>
         </div>
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 rounded bg-yellow-400 flex-shrink-0 mt-1 shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
           <span className="text-white/80">
-            <strong className="text-yellow-400">Yellow</strong> = Your current position
+            <strong className="text-yellow-400">Geel</strong> = Je huidige positie
           </span>
         </div>
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 rounded bg-green-500 flex-shrink-0 mt-1" />
           <span className="text-white/80">
-            <strong className="text-green-400">Green</strong> = Performances you've beaten
+            <strong className="text-green-400">Groen</strong> = Prestaties die je hebt verslagen
           </span>
         </div>
         <div className="flex items-start gap-3">
           <div className="w-6 h-6 rounded bg-green-500 ring-2 ring-vapor-gold flex-shrink-0 mt-1" />
           <span className="text-white/80">
-            <strong className="text-vapor-gold">Gold ring</strong> = Your personal record
+            <strong className="text-vapor-gold">Gouden rand</strong> = Je persoonlijk record
           </span>
         </div>
       </div>
@@ -176,10 +176,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     >
       <div className="text-center mb-6">
         <h2 className="font-display text-2xl font-bold text-white mb-2">
-          Choose Your First Habits
+          Kies Je Eerste Gewoontes
         </h2>
         <p className="text-white/60">
-          Select some habits to get started, or skip to create custom ones later.
+          Selecteer gewoontes om te beginnen, of sla over om later eigen gewoontes te maken.
         </p>
       </div>
 
@@ -204,7 +204,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <span className="text-2xl">{habit.emoji}</span>
               <span className="text-sm text-white font-medium">{habit.name}</span>
               <span className="text-xs text-white/40">
-                {habit.type === 'boolean' ? 'Yes/No' : `${habit.goalValue} ${habit.unit}`}
+                {habit.type === 'boolean' ? 'Ja/Nee' : `${habit.goalValue} ${habit.unit}`}
               </span>
             </motion.button>
           );
@@ -217,7 +217,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           animate={{ opacity: 1, y: 0 }}
           className="text-center text-sm text-vapor-cyan mt-4"
         >
-          {selectedHabits.length} habit{selectedHabits.length !== 1 ? 's' : ''} selected
+          {selectedHabits.length} gewoonte{selectedHabits.length !== 1 ? 's' : ''} geselecteerd
         </motion.div>
       )}
     </motion.div>,
@@ -254,13 +254,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         >
           {step === 2 ? (
             selectedHabits.length > 0 ? (
-              "Let's Race!"
+              "Laten We Racen!"
             ) : (
-              "Skip for now"
+              "Overslaan"
             )
           ) : (
             <>
-              Continue
+              Volgende
               <ChevronRight className="w-5 h-5" />
             </>
           )}
@@ -271,7 +271,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             onClick={() => setStep(step - 1)}
             className="w-full mt-3 py-3 text-white/60 hover:text-white transition-colors"
           >
-            Back
+            Terug
           </button>
         )}
       </div>

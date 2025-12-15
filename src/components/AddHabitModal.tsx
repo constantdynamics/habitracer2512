@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight } from 'lucide-react';
-import { PRESET_HABITS, PresetHabit, HabitType, MetricType, FrequencyType, DayOfWeek } from '../types';
+import { X, ChevronRight, MapPin, Smartphone, Footprints } from 'lucide-react';
+import { PRESET_HABITS, PresetHabit, HabitType, MetricType, FrequencyType, DayOfWeek, AutoTrackType } from '../types';
 
 interface AddHabitModalProps {
   onAddPreset: (preset: PresetHabit) => void;
@@ -11,14 +11,21 @@ interface AddHabitModalProps {
 
 type ModalView = 'presets' | 'custom';
 
-const EMOJI_OPTIONS = ['💪', '🧘', '📚', '💧', '🏃', '✍️', '🎯', '🌟', '🔥', '💡', '🎨', '🎵', '💤', '🥗', '🧠', '⏰'];
+const EMOJI_OPTIONS = ['💪', '🧘', '📚', '💧', '🏃', '✍️', '🎯', '🌟', '🔥', '💡', '🎨', '🎵', '💤', '🥗', '🧠', '⏰', '🦷', '🏋️', '📵'];
 const METRIC_TYPES: { value: MetricType; label: string; unit: string }[] = [
-  { value: 'count', label: 'Count', unit: 'times' },
-  { value: 'duration', label: 'Duration', unit: 'minutes' },
-  { value: 'distance', label: 'Distance', unit: 'km' },
-  { value: 'weight', label: 'Weight', unit: 'kg' },
+  { value: 'count', label: 'Aantal', unit: 'keer' },
+  { value: 'duration', label: 'Duur', unit: 'minuten' },
+  { value: 'distance', label: 'Afstand', unit: 'km' },
+  { value: 'weight', label: 'Gewicht', unit: 'kg' },
   { value: 'percentage', label: 'Percentage', unit: '%' },
-  { value: 'custom', label: 'Custom', unit: '' },
+  { value: 'custom', label: 'Aangepast', unit: '' },
+];
+
+const AUTO_TRACK_OPTIONS: { value: AutoTrackType; label: string; icon: React.ReactNode; description: string }[] = [
+  { value: 'manual', label: 'Handmatig', icon: '✋', description: 'Zelf invullen' },
+  { value: 'gps', label: 'GPS', icon: <MapPin className="w-4 h-4" />, description: 'Afstand via locatie' },
+  { value: 'screentime', label: 'Schermtijd', icon: <Smartphone className="w-4 h-4" />, description: 'Telefoongebruik' },
+  { value: 'steps', label: 'Stappen', icon: <Footprints className="w-4 h-4" />, description: 'Via bewegingssensor' },
 ];
 
 export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitModalProps) {
@@ -33,6 +40,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
   const [customUnit, setCustomUnit] = useState('');
   const [frequency, setFrequency] = useState<FrequencyType>('daily');
   const [specificDays, setSpecificDays] = useState<DayOfWeek[]>([]);
+  const [autoTrack, setAutoTrack] = useState<AutoTrackType>('manual');
 
   const handleAddCustom = () => {
     if (!name.trim()) return;
@@ -83,7 +91,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
           {/* Header */}
           <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
             <h2 className="font-display font-bold text-xl text-white">
-              {view === 'presets' ? 'Add Habit' : 'Custom Habit'}
+              {view === 'presets' ? 'Gewoonte Toevoegen' : 'Eigen Gewoonte'}
             </h2>
             <button
               onClick={onClose}
@@ -103,7 +111,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                   : 'text-white/60 hover:text-white'
               }`}
             >
-              Popular Habits
+              Populaire Gewoontes
             </button>
             <button
               onClick={() => setView('custom')}
@@ -113,7 +121,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                   : 'text-white/60 hover:text-white'
               }`}
             >
-              Create Custom
+              Zelf Maken
             </button>
           </div>
 
@@ -134,9 +142,9 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                     <div className="flex-1 text-left">
                       <div className="font-medium text-white">{preset.name}</div>
                       <div className="text-xs text-white/40">
-                        {preset.type === 'boolean' ? 'Yes/No' : `${preset.goalValue} ${preset.unit}`}
+                        {preset.type === 'boolean' ? 'Ja/Nee' : `${preset.goalValue} ${preset.unit}`}
                         {' • '}
-                        {preset.frequency === 'daily' ? 'Daily' : 'Custom'}
+                        {preset.frequency === 'daily' ? 'Dagelijks' : 'Aangepast'}
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-vapor-cyan transition-colors" />
@@ -147,19 +155,19 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
               <div className="space-y-6">
                 {/* Name */}
                 <div>
-                  <label className="text-sm text-white/60 mb-2 block">Habit Name</label>
+                  <label className="text-sm text-white/60 mb-2 block">Naam</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., Morning run"
+                    placeholder="bijv. Ochtend hardlopen"
                     className="w-full p-3 bg-vapor-darker/50 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-vapor-cyan/50"
                   />
                 </div>
 
                 {/* Emoji */}
                 <div>
-                  <label className="text-sm text-white/60 mb-2 block">Icon</label>
+                  <label className="text-sm text-white/60 mb-2 block">Icoon</label>
                   <div className="flex flex-wrap gap-2">
                     {EMOJI_OPTIONS.map((e) => (
                       <button
@@ -189,7 +197,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                           : 'bg-vapor-darker/50 text-white/60 hover:text-white'
                       }`}
                     >
-                      Yes / No
+                      Ja / Nee
                     </button>
                     <button
                       onClick={() => setHabitType('quantifiable')}
@@ -199,7 +207,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                           : 'bg-vapor-darker/50 text-white/60 hover:text-white'
                       }`}
                     >
-                      Measurable
+                      Meetbaar
                     </button>
                   </div>
                 </div>
@@ -208,7 +216,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                 {habitType === 'quantifiable' && (
                   <>
                     <div>
-                      <label className="text-sm text-white/60 mb-2 block">Metric Type</label>
+                      <label className="text-sm text-white/60 mb-2 block">Metriek Type</label>
                       <div className="grid grid-cols-3 gap-2">
                         {METRIC_TYPES.map((m) => (
                           <button
@@ -226,9 +234,38 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                       </div>
                     </div>
 
+                    {/* Auto tracking */}
+                    <div>
+                      <label className="text-sm text-white/60 mb-2 block">Automatisch Meten</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {AUTO_TRACK_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setAutoTrack(opt.value)}
+                            className={`p-3 rounded-lg text-sm transition-all flex flex-col items-center gap-1 ${
+                              autoTrack === opt.value
+                                ? 'bg-vapor-cyan/30 ring-2 ring-vapor-cyan text-white'
+                                : 'bg-vapor-darker/50 text-white/60 hover:text-white'
+                            }`}
+                          >
+                            <span className="text-lg">{typeof opt.icon === 'string' ? opt.icon : opt.icon}</span>
+                            <span className="font-medium">{opt.label}</span>
+                            <span className="text-[10px] text-white/40">{opt.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {autoTrack !== 'manual' && (
+                        <p className="text-xs text-vapor-cyan/70 mt-2">
+                          {autoTrack === 'gps' && '📍 GPS tracking werkt alleen met toestemming en verbruikt batterij'}
+                          {autoTrack === 'screentime' && '📱 Schermtijd data wordt opgehaald uit je apparaat'}
+                          {autoTrack === 'steps' && '👟 Stappen worden gemeten via de bewegingssensor'}
+                        </p>
+                      )}
+                    </div>
+
                     <div className="flex gap-4">
                       <div className="flex-1">
-                        <label className="text-sm text-white/60 mb-2 block">Goal</label>
+                        <label className="text-sm text-white/60 mb-2 block">Doel</label>
                         <input
                           type="number"
                           value={goalValue}
@@ -239,12 +276,12 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                       </div>
                       {metricType === 'custom' && (
                         <div className="flex-1">
-                          <label className="text-sm text-white/60 mb-2 block">Unit</label>
+                          <label className="text-sm text-white/60 mb-2 block">Eenheid</label>
                           <input
                             type="text"
                             value={customUnit}
                             onChange={(e) => setCustomUnit(e.target.value)}
-                            placeholder="e.g., pages"
+                            placeholder="bijv. pagina's"
                             className="w-full p-3 bg-vapor-darker/50 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-vapor-cyan/50"
                           />
                         </div>
@@ -255,7 +292,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
 
                 {/* Frequency */}
                 <div>
-                  <label className="text-sm text-white/60 mb-2 block">Frequency</label>
+                  <label className="text-sm text-white/60 mb-2 block">Frequentie</label>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setFrequency('daily')}
@@ -265,7 +302,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                           : 'bg-vapor-darker/50 text-white/60 hover:text-white'
                       }`}
                     >
-                      Daily
+                      Dagelijks
                     </button>
                     <button
                       onClick={() => setFrequency('specific_days')}
@@ -275,7 +312,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                           : 'bg-vapor-darker/50 text-white/60 hover:text-white'
                       }`}
                     >
-                      Specific Days
+                      Specifieke Dagen
                     </button>
                   </div>
                 </div>
@@ -283,19 +320,24 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                 {/* Day selector */}
                 {frequency === 'specific_days' && (
                   <div className="flex gap-2 justify-center">
-                    {(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as DayOfWeek[]).map((day) => (
-                      <button
-                        key={day}
-                        onClick={() => toggleDay(day)}
-                        className={`w-10 h-10 rounded-lg text-xs font-medium transition-all ${
-                          specificDays.includes(day)
-                            ? 'bg-vapor-cyan/30 ring-2 ring-vapor-cyan text-white'
-                            : 'bg-vapor-darker/50 text-white/60 hover:text-white'
-                        }`}
-                      >
-                        {day.charAt(0).toUpperCase() + day.slice(1, 2)}
-                      </button>
-                    ))}
+                    {(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as DayOfWeek[]).map((day) => {
+                      const dayLabels: Record<DayOfWeek, string> = {
+                        mon: 'Ma', tue: 'Di', wed: 'Wo', thu: 'Do', fri: 'Vr', sat: 'Za', sun: 'Zo'
+                      };
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => toggleDay(day)}
+                          className={`w-10 h-10 rounded-lg text-xs font-medium transition-all ${
+                            specificDays.includes(day)
+                              ? 'bg-vapor-cyan/30 ring-2 ring-vapor-cyan text-white'
+                              : 'bg-vapor-darker/50 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          {dayLabels[day]}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -312,7 +354,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                 disabled={!name.trim()}
                 className="w-full py-3 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white font-semibold rounded-xl glow-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Habit
+                Gewoonte Aanmaken
               </motion.button>
             </div>
           )}

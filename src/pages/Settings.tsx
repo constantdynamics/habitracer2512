@@ -59,21 +59,21 @@ export function Settings() {
             await db.streaks.bulkAdd(data.streaks);
           }
 
-          alert('Data imported successfully! Refreshing...');
+          alert('Data succesvol geïmporteerd! Pagina wordt herladen...');
           window.location.reload();
         } else {
-          alert('Invalid backup file format');
+          alert('Ongeldig backup bestand formaat');
         }
       } catch {
-        alert('Failed to import data. Please check the file format.');
+        alert('Importeren mislukt. Controleer het bestandsformaat.');
       }
     };
     input.click();
   };
 
   const handleClearData = async () => {
-    if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
-      if (confirm('Really? All your habits and progress will be permanently deleted.')) {
+    if (confirm('Weet je zeker dat je ALLE data wilt verwijderen? Dit kan niet ongedaan worden!')) {
+      if (confirm('Echt zeker? Al je gewoontes en voortgang worden permanent verwijderd.')) {
         await db.habits.clear();
         await db.entries.clear();
         await db.streaks.clear();
@@ -96,7 +96,7 @@ export function Settings() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="font-display font-bold text-xl text-white">Settings</h1>
+          <h1 className="font-display font-bold text-xl text-white">Instellingen</h1>
         </div>
       </header>
 
@@ -108,7 +108,7 @@ export function Settings() {
           className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl border border-white/10 overflow-hidden"
         >
           <div className="p-4 border-b border-white/10">
-            <h2 className="font-medium text-white">Preferences</h2>
+            <h2 className="font-medium text-white">Voorkeuren</h2>
           </div>
 
           <div className="divide-y divide-white/5">
@@ -119,8 +119,8 @@ export function Settings() {
                   <Bell className="w-5 h-5 text-vapor-pink" />
                 </div>
                 <div>
-                  <div className="text-white font-medium">Notifications</div>
-                  <div className="text-sm text-white/40">Daily reminders</div>
+                  <div className="text-white font-medium">Meldingen</div>
+                  <div className="text-sm text-white/40">Dagelijkse herinneringen</div>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -141,8 +141,8 @@ export function Settings() {
                   <Volume2 className="w-5 h-5 text-vapor-cyan" />
                 </div>
                 <div>
-                  <div className="text-white font-medium">Sound Effects</div>
-                  <div className="text-sm text-white/40">Celebration sounds</div>
+                  <div className="text-white font-medium">Geluidseffecten</div>
+                  <div className="text-sm text-white/40">Viering geluiden</div>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -163,8 +163,8 @@ export function Settings() {
                   <Vibrate className="w-5 h-5 text-vapor-gold" />
                 </div>
                 <div>
-                  <div className="text-white font-medium">Haptic Feedback</div>
-                  <div className="text-sm text-white/40">Vibration on actions</div>
+                  <div className="text-white font-medium">Haptische Feedback</div>
+                  <div className="text-sm text-white/40">Trillen bij acties</div>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -188,7 +188,7 @@ export function Settings() {
           className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl border border-white/10 overflow-hidden"
         >
           <div className="p-4 border-b border-white/10">
-            <h2 className="font-medium text-white">Data</h2>
+            <h2 className="font-medium text-white">Gegevens</h2>
           </div>
 
           <div className="divide-y divide-white/5">
@@ -201,8 +201,8 @@ export function Settings() {
                 <Download className="w-5 h-5 text-green-400" />
               </div>
               <div className="text-left">
-                <div className="text-white font-medium">Export Data</div>
-                <div className="text-sm text-white/40">Download your data as JSON</div>
+                <div className="text-white font-medium">Exporteer Data</div>
+                <div className="text-sm text-white/40">Download je data als JSON</div>
               </div>
             </button>
 
@@ -215,8 +215,8 @@ export function Settings() {
                 <Upload className="w-5 h-5 text-blue-400" />
               </div>
               <div className="text-left">
-                <div className="text-white font-medium">Import Data</div>
-                <div className="text-sm text-white/40">Restore from backup</div>
+                <div className="text-white font-medium">Importeer Data</div>
+                <div className="text-sm text-white/40">Herstel vanuit backup</div>
               </div>
             </button>
 
@@ -229,8 +229,8 @@ export function Settings() {
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div className="text-left">
-                <div className="text-red-400 font-medium">Clear All Data</div>
-                <div className="text-sm text-white/40">Delete everything permanently</div>
+                <div className="text-red-400 font-medium">Wis Alle Data</div>
+                <div className="text-sm text-white/40">Verwijder alles permanent</div>
               </div>
             </button>
           </div>
@@ -249,11 +249,11 @@ export function Settings() {
             </div>
             <div>
               <div className="text-white font-medium">HabitRacer</div>
-              <div className="text-sm text-white/40">Version 1.0.0</div>
+              <div className="text-sm text-white/40">Versie 1.0.0</div>
             </div>
           </div>
           <p className="text-sm text-white/60">
-            Race against your past self to build better habits. All data is stored locally on your device.
+            Race tegen je verleden om betere gewoontes op te bouwen. Alle data wordt lokaal op je apparaat opgeslagen.
           </p>
         </motion.div>
       </main>

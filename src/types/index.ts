@@ -3,6 +3,9 @@ export type HabitType = 'boolean' | 'quantifiable';
 
 export type MetricType = 'count' | 'duration' | 'distance' | 'weight' | 'percentage' | 'custom';
 
+// Automatische tracking types
+export type AutoTrackType = 'manual' | 'gps' | 'screentime' | 'steps';
+
 export type HabitDirection = 'maximize' | 'minimize';
 
 export type FrequencyType = 'daily' | 'weekly' | 'specific_days';
@@ -24,6 +27,7 @@ export interface Habit {
   updatedAt: number;
   archived: boolean;
   color?: string;
+  autoTrack?: AutoTrackType; // Type automatische tracking
 }
 
 // Entry Types
@@ -59,10 +63,10 @@ export interface Trophy {
 }
 
 export const TROPHIES: Trophy[] = [
-  { level: 'bronze', name: 'Bronze', requiredDays: 3, emoji: '🥉' },
-  { level: 'silver', name: 'Silver', requiredDays: 7, emoji: '🥈' },
-  { level: 'gold', name: 'Gold', requiredDays: 14, emoji: '🥇' },
-  { level: 'diamond', name: 'Diamond', requiredDays: 30, emoji: '💎' },
+  { level: 'bronze', name: 'Brons', requiredDays: 3, emoji: '🥉' },
+  { level: 'silver', name: 'Zilver', requiredDays: 7, emoji: '🥈' },
+  { level: 'gold', name: 'Goud', requiredDays: 14, emoji: '🥇' },
+  { level: 'diamond', name: 'Diamant', requiredDays: 30, emoji: '💎' },
 ];
 
 // Race Types
@@ -143,91 +147,88 @@ export interface PresetHabit {
 
 export const PRESET_HABITS: PresetHabit[] = [
   {
-    name: 'Meditation',
-    emoji: '🧘',
-    type: 'quantifiable',
-    metricType: 'duration',
-    direction: 'maximize',
-    goalValue: 10,
-    unit: 'minutes',
-    frequency: 'daily',
-  },
-  {
-    name: 'Reading',
-    emoji: '📚',
-    type: 'quantifiable',
-    metricType: 'duration',
-    direction: 'maximize',
-    goalValue: 30,
-    unit: 'minutes',
-    frequency: 'daily',
-  },
-  {
-    name: 'Exercise',
-    emoji: '💪',
+    name: 'Tandenstoken',
+    emoji: '🦷',
     type: 'boolean',
     direction: 'maximize',
     frequency: 'daily',
   },
   {
-    name: 'Water Intake',
-    emoji: '💧',
-    type: 'quantifiable',
-    metricType: 'count',
+    name: 'Sportschool',
+    emoji: '🏋️',
+    type: 'boolean',
     direction: 'maximize',
-    goalValue: 8,
-    unit: 'glasses',
     frequency: 'daily',
   },
   {
-    name: 'Sleep',
-    emoji: '😴',
+    name: 'Hardlopen',
+    emoji: '🏃',
+    type: 'quantifiable',
+    metricType: 'distance',
+    direction: 'maximize',
+    goalValue: 5,
+    unit: 'km',
+    frequency: 'daily',
+  },
+  {
+    name: 'Boek lezen',
+    emoji: '📚',
     type: 'quantifiable',
     metricType: 'duration',
     direction: 'maximize',
-    goalValue: 8,
-    unit: 'hours',
+    goalValue: 30,
+    unit: 'minuten',
     frequency: 'daily',
   },
   {
-    name: 'No Social Media',
+    name: 'Telefoon wegleggen',
     emoji: '📵',
     type: 'boolean',
     direction: 'maximize',
     frequency: 'daily',
   },
   {
-    name: 'Journaling',
-    emoji: '✍️',
-    type: 'boolean',
+    name: 'Meditatie',
+    emoji: '🧘',
+    type: 'quantifiable',
+    metricType: 'duration',
     direction: 'maximize',
+    goalValue: 10,
+    unit: 'minuten',
     frequency: 'daily',
   },
   {
-    name: 'Walking',
-    emoji: '🚶',
+    name: 'Water drinken',
+    emoji: '💧',
     type: 'quantifiable',
     metricType: 'count',
     direction: 'maximize',
-    goalValue: 10000,
-    unit: 'steps',
+    goalValue: 8,
+    unit: 'glazen',
     frequency: 'daily',
   },
   {
-    name: 'Healthy Eating',
+    name: 'Slaap',
+    emoji: '😴',
+    type: 'quantifiable',
+    metricType: 'duration',
+    direction: 'maximize',
+    goalValue: 8,
+    unit: 'uur',
+    frequency: 'daily',
+  },
+  {
+    name: 'Gezond eten',
     emoji: '🥗',
     type: 'boolean',
     direction: 'maximize',
     frequency: 'daily',
   },
   {
-    name: 'Learning',
-    emoji: '🎓',
-    type: 'quantifiable',
-    metricType: 'duration',
+    name: 'Dagboek schrijven',
+    emoji: '✍️',
+    type: 'boolean',
     direction: 'maximize',
-    goalValue: 30,
-    unit: 'minutes',
     frequency: 'daily',
   },
 ];
