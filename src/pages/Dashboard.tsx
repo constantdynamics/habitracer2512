@@ -255,12 +255,12 @@ export function Dashboard() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-vapor-dark/80 backdrop-blur-lg border-b border-white/10 safe-area-top">
         <div className="px-4 py-4 flex items-center justify-between">
-          <div>
+          <button onClick={() => navigate('/')} className="text-left hover:opacity-80 transition-opacity">
             <h1 className="font-display font-bold text-2xl text-white">
               Habit<span className="text-vapor-cyan">Racer</span>
             </h1>
             <p className="text-sm text-white/40">Race tegen jezelf</p>
-          </div>
+          </button>
           <button
             onClick={() => navigate('/settings')}
             className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Calendar, TrendingUp, Trash2, Edit3 } from 'lucide-react';
+import { ArrowLeft, Calendar, TrendingUp, Trash2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadRaceData, loadStats, loadEntriesForHabit, deleteHabit, quickCheckIn, checkInWithValue } from '../store/habitsSlice';
+import { loadRaceData, loadStats, loadEntriesForHabit, deleteHabit, quickCheckIn, checkInWithValue, deleteEntry } from '../store/habitsSlice';
 import { RaceVisualization } from '../components/RaceVisualization';
 import { Trophy } from '../components/Trophy';
 import { CheckInModal } from '../components/CheckInModal';
@@ -45,13 +45,13 @@ export function HabitDetail() {
     }
   };
 
-  const handleCheckIn = async (value: number, notes?: string) => {
+  const handleCheckIn = async (value: number, notes?: string, date?: string) => {
     if (!habitId) return;
 
     if (habit?.type === 'boolean') {
       await dispatch(quickCheckIn(habitId));
     } else {
-      await dispatch(checkInWithValue({ habitId, value, notes }));
+      await dispatch(checkInWithValue({ habitId, value, notes, date }));
     }
 
     await dispatch(loadRaceData(habitId));
@@ -60,6 +60,17 @@ export function HabitDetail() {
     const newStreak = await getCurrentStreak(habitId);
     setCurrentStreak(newStreak);
     setShowCheckIn(false);
+  };
+
+  const handleDeleteEntry = async (date: string) => {
+    if (!habitId) return;
+
+    await dispatch(deleteEntry({ habitId, date }));
+    await dispatch(loadRaceData(habitId));
+    await dispatch(loadStats(habitId));
+    await dispatch(loadEntriesForHabit(habitId));
+    const newStreak = await getCurrentStreak(habitId);
+    setCurrentStreak(newStreak);
   };
 
   if (!habit || !habitId) {
@@ -103,7 +114,7 @@ export function HabitDetail() {
             <div>
               <h1 className="font-semibold text-white">{habit.name}</h1>
               <p className="text-sm text-white/40">
-                {habit.type === 'boolean' ? 'Daily habit' : `Goal: ${habit.goalValue} ${habit.unit}`}
+                {habit.type === 'boolean' ? 'Dagelijkse gewoonte' : `Doel: ${habit.goalValue} ${habit.unit}`}
               </p>
             </div>
           </div>
@@ -123,20 +134,20 @@ export function HabitDetail() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
         >
-          <h2 className="text-sm font-medium text-white/60 mb-3">Race Position</h2>
+          <h2 className="text-sm font-medium text-white/60 mb-3">Race Positie</h2>
           <RaceVisualization raceData={habitRaceData} />
 
           {habitRaceData?.nextTarget && (
             <div className="mt-4 p-3 bg-vapor-darker/50 rounded-lg">
-              <div className="text-sm text-white/60">Next position</div>
+              <div className="text-sm text-white/60">Volgende positie</div>
               <div className="flex items-baseline justify-between">
                 <span className="text-lg font-semibold text-vapor-cyan">
                   {Math.abs(habitRaceData.nextTarget.value - habitRaceData.currentValue).toFixed(0)}{' '}
-                  {habit.unit || 'more'} to #{habitRaceData.nextTarget.position}
+                  {habit.unit || 'meer'} naar #{habitRaceData.nextTarget.position}
                 </span>
                 {habitRaceData.nextTarget.estimatedDate && (
                   <span className="text-xs text-white/40">
-                    Est. {format(new Date(habitRaceData.nextTarget.estimatedDate), 'MMM d')}
+                    Geschat {format(new Date(habitRaceData.nextTarget.estimatedDate), 'd MMM')}
                   </span>
                 )}
               </div>
@@ -144,7 +155,7 @@ export function HabitDetail() {
           )}
         </motion.div>
 
-        {/* Quick Check-in */}
+        {/* Start / Check-in Button */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -160,18 +171,18 @@ export function HabitDetail() {
         >
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              todayEntry?.value ? 'bg-green-500' : 'bg-vapor-darker'
+              todayEntry?.value ? 'bg-green-500' : 'bg-gradient-to-r from-vapor-pink to-vapor-cyan'
             }`}>
-              {todayEntry?.value ? '✓' : <Edit3 className="w-5 h-5" />}
+              {todayEntry?.value ? '✓' : '▶'}
             </div>
             <div className="text-left">
               <div className="font-medium text-white">
-                {todayEntry?.value ? 'Completed Today' : "Today's Check-in"}
+                {todayEntry?.value ? 'Vandaag voltooid' : 'Start nieuwe poging'}
               </div>
               <div className="text-sm text-white/40">
                 {habit.type === 'quantifiable' && todayEntry?.value
                   ? `${todayEntry.value} ${habit.unit}`
-                  : 'Tap to log'}
+                  : 'Tik om te beginnen'}
               </div>
             </div>
           </div>
@@ -188,10 +199,10 @@ export function HabitDetail() {
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">🔥</span>
-              <span className="text-sm text-white/60">Current Streak</span>
+              <span className="text-sm text-white/60">Huidige Streak</span>
             </div>
             <div className="text-3xl font-bold text-white">{currentStreak}</div>
-            <div className="text-xs text-white/40">days</div>
+            <div className="text-xs text-white/40">dagen</div>
           </motion.div>
 
           <motion.div
@@ -202,7 +213,7 @@ export function HabitDetail() {
           >
             <div className="flex items-center gap-2 mb-2">
               <Trophy streakDays={currentStreak} size="sm" />
-              <span className="text-sm text-white/60">Trophy</span>
+              <span className="text-sm text-white/60">Trofee</span>
             </div>
             <Trophy streakDays={currentStreak} showLabel size="md" />
           </motion.div>
@@ -216,24 +227,24 @@ export function HabitDetail() {
             transition={{ delay: 0.3 }}
             className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
           >
-            <h2 className="text-sm font-medium text-white/60 mb-4">Statistics</h2>
+            <h2 className="text-sm font-medium text-white/60 mb-4">Statistieken</h2>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-xs text-white/40">Best</div>
+                <div className="text-xs text-white/40">Beste</div>
                 <div className="text-lg font-semibold text-vapor-gold">
                   {habitStats.bestValue} {habit.unit}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-white/40">Average</div>
+                <div className="text-xs text-white/40">Gemiddeld</div>
                 <div className="text-lg font-semibold text-vapor-cyan">
                   {habitStats.averageValue.toFixed(1)} {habit.unit}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-white/40">Total</div>
+                <div className="text-xs text-white/40">Totaal</div>
                 <div className="text-lg font-semibold text-white">
-                  {habitStats.totalEntries} days
+                  {habitStats.totalEntries} dagen
                 </div>
               </div>
             </div>
@@ -245,8 +256,8 @@ export function HabitDetail() {
                   habitStats.trend === 'declining' ? 'text-red-400' : 'text-white/40'
                 }`} />
                 <span className="text-sm text-white/60">
-                  {habitStats.trend === 'improving' ? 'Improving' :
-                   habitStats.trend === 'declining' ? 'Declining' : 'Stable'}
+                  {habitStats.trend === 'improving' ? 'Verbetert' :
+                   habitStats.trend === 'declining' ? 'Daalt' : 'Stabiel'}
                 </span>
               </div>
               {habitStats.trendPercentage > 0 && (
@@ -271,7 +282,7 @@ export function HabitDetail() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-white/60 flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              History
+              Geschiedenis
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -294,7 +305,7 @@ export function HabitDetail() {
 
           {/* Day headers */}
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+            {['Z', 'M', 'D', 'W', 'D', 'V', 'Z'].map((day, i) => (
               <div key={i} className="text-center text-xs text-white/40 py-1">
                 {day}
               </div>
@@ -337,6 +348,8 @@ export function HabitDetail() {
             habit={habit}
             currentValue={todayEntry?.value || 0}
             onCheckIn={handleCheckIn}
+            onDeleteEntry={handleDeleteEntry}
+            recentEntries={[...habitEntries].sort((a, b) => b.date.localeCompare(a.date))}
             onClose={() => setShowCheckIn(false)}
           />
         )}
@@ -359,22 +372,22 @@ export function HabitDetail() {
               onClick={(e) => e.stopPropagation()}
               className="bg-vapor-dark rounded-xl p-6 border border-white/10 max-w-sm w-full"
             >
-              <h3 className="text-lg font-semibold text-white mb-2">Delete Habit?</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Gewoonte verwijderen?</h3>
               <p className="text-white/60 mb-6">
-                This will permanently delete "{habit.name}" and all its data. This action cannot be undone.
+                Dit verwijdert "{habit.name}" en alle bijbehorende data permanent. Dit kan niet ongedaan worden gemaakt.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   className="flex-1 py-3 bg-vapor-darker rounded-xl text-white font-medium hover:bg-vapor-darkest transition-colors"
                 >
-                  Cancel
+                  Annuleren
                 </button>
                 <button
                   onClick={handleDelete}
                   className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors"
                 >
-                  Delete
+                  Verwijderen
                 </button>
               </div>
             </motion.div>

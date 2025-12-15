@@ -111,6 +111,14 @@ export async function getEntry(habitId: string, date: string): Promise<HabitEntr
     .first();
 }
 
+export async function deleteEntry(habitId: string, date: string): Promise<void> {
+  const entry = await getEntry(habitId, date);
+  if (entry) {
+    await db.entries.delete(entry.id);
+    await updateStreaks(habitId);
+  }
+}
+
 export async function getEntriesForHabit(habitId: string, startDate?: string, endDate?: string): Promise<HabitEntry[]> {
   let query = db.entries.where('habitId').equals(habitId);
 
@@ -558,6 +566,6 @@ export async function quickCheckIn(habitId: string): Promise<HabitEntry> {
 }
 
 // Check-in with value for quantifiable habits
-export async function checkInWithValue(habitId: string, value: number, notes?: string): Promise<HabitEntry> {
-  return createEntry(habitId, getTodayDate(), value, notes);
+export async function checkInWithValue(habitId: string, value: number, notes?: string, date?: string): Promise<HabitEntry> {
+  return createEntry(habitId, date || getTodayDate(), value, notes);
 }

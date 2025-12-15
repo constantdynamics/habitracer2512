@@ -71,9 +71,17 @@ export const quickCheckIn = createAsyncThunk('habits/quickCheckIn', async (habit
 
 export const checkInWithValue = createAsyncThunk(
   'habits/checkInWithValue',
-  async ({ habitId, value, notes }: { habitId: string; value: number; notes?: string }) => {
-    const entry = await habitService.checkInWithValue(habitId, value, notes);
+  async ({ habitId, value, notes, date }: { habitId: string; value: number; notes?: string; date?: string }) => {
+    const entry = await habitService.checkInWithValue(habitId, value, notes, date);
     return { habitId, entry };
+  }
+);
+
+export const deleteEntry = createAsyncThunk(
+  'habits/deleteEntry',
+  async ({ habitId, date }: { habitId: string; date: string }) => {
+    await habitService.deleteEntry(habitId, date);
+    return { habitId, date };
   }
 );
 
@@ -211,6 +219,14 @@ const habitsSlice = createSlice({
       // Load all race data
       .addCase(loadAllRaceData.fulfilled, (state, action: PayloadAction<Record<string, RaceData>>) => {
         state.raceData = { ...state.raceData, ...action.payload };
+      })
+
+      // Delete entry
+      .addCase(deleteEntry.fulfilled, (state, action) => {
+        const { habitId, date } = action.payload;
+        if (state.entries[habitId]) {
+          state.entries[habitId] = state.entries[habitId].filter((e) => e.date !== date);
+        }
       });
   },
 });
