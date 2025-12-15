@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Habit, HabitEntry, Streak, AppSettings, OnboardingState } from '../types';
+import { Habit, HabitEntry, Streak, AppSettings, OnboardingState, ActiveTimer } from '../types';
 
 export class HabitRacerDB extends Dexie {
   habits!: Table<Habit>;
@@ -7,6 +7,7 @@ export class HabitRacerDB extends Dexie {
   streaks!: Table<Streak>;
   settings!: Table<AppSettings & { id: string }>;
   onboarding!: Table<OnboardingState & { id: string }>;
+  activeTimers!: Table<ActiveTimer>;
 
   constructor() {
     super('HabitRacerDB');
@@ -17,6 +18,16 @@ export class HabitRacerDB extends Dexie {
       streaks: 'id, habitId, startDate, isActive, [habitId+isActive]',
       settings: 'id',
       onboarding: 'id',
+    });
+
+    // Version 2: Add activeTimers table for persistent timers
+    this.version(2).stores({
+      habits: 'id, name, createdAt, updatedAt, archived',
+      entries: 'id, habitId, date, [habitId+date], createdAt',
+      streaks: 'id, habitId, startDate, isActive, [habitId+isActive]',
+      settings: 'id',
+      onboarding: 'id',
+      activeTimers: 'id, habitId, isRunning',
     });
   }
 }

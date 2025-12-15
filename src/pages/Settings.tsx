@@ -163,7 +163,7 @@ export function Settings() {
                   <Vibrate className="w-5 h-5 text-vapor-gold" />
                 </div>
                 <div>
-                  <div className="text-white font-medium">Haptische Feedback</div>
+                  <div className="text-white font-medium">Haptische feedback</div>
                   <div className="text-sm text-white/40">Trillen bij acties</div>
                 </div>
               </div>
@@ -201,7 +201,7 @@ export function Settings() {
                 <Download className="w-5 h-5 text-green-400" />
               </div>
               <div className="text-left">
-                <div className="text-white font-medium">Exporteer Data</div>
+                <div className="text-white font-medium">Exporteer data</div>
                 <div className="text-sm text-white/40">Download je data als JSON</div>
               </div>
             </button>
@@ -215,7 +215,7 @@ export function Settings() {
                 <Upload className="w-5 h-5 text-blue-400" />
               </div>
               <div className="text-left">
-                <div className="text-white font-medium">Importeer Data</div>
+                <div className="text-white font-medium">Importeer data</div>
                 <div className="text-sm text-white/40">Herstel vanuit backup</div>
               </div>
             </button>
@@ -229,7 +229,7 @@ export function Settings() {
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div className="text-left">
-                <div className="text-red-400 font-medium">Wis Alle Data</div>
+                <div className="text-red-400 font-medium">Wis alle data</div>
                 <div className="text-sm text-white/40">Verwijder alles permanent</div>
               </div>
             </button>

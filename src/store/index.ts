@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import habitsReducer from './habitsSlice';
 import uiReducer from './uiSlice';
+import timersReducer from './timersSlice';
 
 export const store = configureStore({
   reducer: {
     habits: habitsReducer,
     ui: uiReducer,
+    timers: timersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

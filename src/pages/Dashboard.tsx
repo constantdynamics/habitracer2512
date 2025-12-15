@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Settings, List, Grid3X3 } from 'lucide-react';
+import { Plus, Settings, Timer } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadHabits,
@@ -10,171 +10,73 @@ import {
   loadRaceData,
   createHabitFromPreset,
   checkInWithValue,
+  loadEntriesForHabit,
 } from '../store/habitsSlice';
+import {
+  loadActiveTimers,
+  startTimer,
+  pauseTimer,
+  stopAndSaveTimer,
+  deleteTimer,
+} from '../store/timersSlice';
 import { setShowAddHabitModal, triggerCelebration, dismissCelebration } from '../store/uiSlice';
 import { HabitCard } from '../components/HabitCard';
 import { AddHabitModal } from '../components/AddHabitModal';
 import { CheckInModal } from '../components/CheckInModal';
 import { Celebration } from '../components/Celebration';
+import { LiveTimerCard } from '../components/LiveTimerCard';
 import { getTodayDate } from '../db';
-import { Habit, PresetHabit, RaceData } from '../types';
-import { getCurrentStreak } from '../services/habitService';
-
-type TabType = 'habits' | 'races';
-
-// Race Tile Component
-function RaceTile({
-  habit,
-  raceData,
-  streak,
-  onClick
-}: {
-  habit: Habit;
-  raceData: RaceData | undefined;
-  streak: number;
-  onClick: () => void;
-}) {
-  const positions = raceData?.positions || [];
-  const currentPosition = raceData?.currentPosition || 0;
-  const totalPositions = raceData?.totalPositions || 0;
-
-  // Calculate race status
-  const aheadCount = positions.filter(p => p.position < currentPosition).length;
-  const behindCount = positions.filter(p => p.position > currentPosition && !p.isCurrent).length;
-  const hasPR = positions.some(p => p.isPersonalRecord);
-
-  // Determine overall tile status color
-  let statusColor = 'from-vapor-dark to-vapor-darker';
-  let borderColor = 'border-white/10';
-
-  if (currentPosition === 1 && totalPositions > 0) {
-    // Leading the race!
-    statusColor = 'from-vapor-gold/30 to-vapor-gold/10';
-    borderColor = 'border-vapor-gold/50';
-  } else if (aheadCount > behindCount) {
-    // More ahead than behind - doing poorly
-    statusColor = 'from-red-500/20 to-red-900/10';
-    borderColor = 'border-red-500/30';
-  } else if (behindCount > aheadCount) {
-    // More behind than ahead - doing well
-    statusColor = 'from-green-500/20 to-green-900/10';
-    borderColor = 'border-green-500/30';
-  }
-
-  return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`w-full p-4 rounded-xl bg-gradient-to-br ${statusColor} border ${borderColor} text-left transition-all`}
-    >
-      {/* Header with emoji and name */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-2xl">{habit.emoji}</span>
-        <span className="font-semibold text-white truncate flex-1">{habit.name}</span>
-        {hasPR && <span className="text-sm">👑</span>}
-      </div>
-
-      {/* Race visualization blocks */}
-      <div className="flex flex-wrap gap-1 mb-3">
-        {positions.length === 0 ? (
-          // Empty state
-          [...Array(5)].map((_, i) => (
-            <div key={i} className="w-5 h-5 rounded bg-vapor-darker/50" />
-          ))
-        ) : (
-          positions.slice(0, 10).map((pos, index) => {
-            const isAhead = pos.position < currentPosition;
-            const isCurrent = pos.isCurrent || pos.position === currentPosition;
-            const isPR = pos.isPersonalRecord;
-
-            let bgColor = 'bg-green-500'; // Behind (beaten)
-            if (isAhead) {
-              bgColor = 'bg-red-500'; // Ahead (need to catch)
-            } else if (isCurrent) {
-              bgColor = 'bg-yellow-400';
-            }
-
-            return (
-              <motion.div
-                key={pos.position}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: index * 0.03 }}
-                className={`w-5 h-5 rounded ${bgColor} ${isPR ? 'ring-2 ring-vapor-gold' : ''} ${isCurrent ? 'animate-pulse' : ''}`}
-              />
-            );
-          })
-        )}
-      </div>
-
-      {/* Position info */}
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-white/60">
-          {totalPositions > 0 ? (
-            <>Positie <span className="text-white font-bold">{currentPosition}</span> van {totalPositions}</>
-          ) : (
-            'Geen data'
-          )}
-        </span>
-        {streak > 0 && (
-          <span className="text-vapor-cyan font-medium">
-            🔥 {streak}d
-          </span>
-        )}
-      </div>
-
-      {/* Legend mini */}
-      <div className="flex items-center gap-3 mt-2 text-[10px] text-white/40">
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded bg-red-500" /> Voor
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded bg-yellow-400" /> Nu
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded bg-green-500" /> Verslagen
-        </span>
-      </div>
-    </motion.button>
-  );
-}
+import { Habit, PresetHabit } from '../types';
+import { getCurrentStreak, getEntriesForHabit } from '../services/habitService';
 
 export function Dashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { habits, raceData, entries } = useAppSelector((state) => state.habits);
+  const { activeTimers } = useAppSelector((state) => state.timers);
   const { showAddHabitModal, showCelebration, celebrationMessage } = useAppSelector(
     (state) => state.ui
   );
 
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [checkInHabit, setCheckInHabit] = useState<Habit | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('habits');
+  const [bestValues, setBestValues] = useState<Record<string, number>>({});
+  const [previousEntries, setPreviousEntries] = useState<Record<string, { value: number; date: string }>>({});
 
-  // Load habits on mount
+  // Load habits and active timers on mount
   useEffect(() => {
     dispatch(loadHabits());
+    dispatch(loadActiveTimers());
   }, [dispatch]);
 
-  // Load race data when habits change
+  // Load race data, streaks, and best values when habits change
   useEffect(() => {
     if (habits.length > 0) {
       dispatch(loadAllRaceData());
-      // Load streaks
+      // Load streaks, best values, and previous entries
       Promise.all(
         habits.map(async (h) => {
           const streak = await getCurrentStreak(h.id);
-          return { id: h.id, streak };
+          const allEntries = await getEntriesForHabit(h.id);
+          const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
+          const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
+          const previous = sortedEntries.length > 1 ? sortedEntries[1] : sortedEntries[0];
+          return { id: h.id, streak, best, previous };
         })
       ).then((results) => {
         const streakMap: Record<string, number> = {};
+        const bestMap: Record<string, number> = {};
+        const prevMap: Record<string, { value: number; date: string }> = {};
         results.forEach((r) => {
           streakMap[r.id] = r.streak;
+          bestMap[r.id] = r.best;
+          if (r.previous) {
+            prevMap[r.id] = { value: r.previous.value, date: r.previous.date };
+          }
         });
         setStreaks(streakMap);
+        setBestValues(bestMap);
+        setPreviousEntries(prevMap);
       });
     }
   }, [habits, dispatch]);
@@ -199,13 +101,13 @@ export function Dashboard() {
       if (newStreak > previousStreak) {
         // Check for trophy milestones
         if (newStreak === 3) {
-          dispatch(triggerCelebration('Bronzen Trofee Ontgrendeld! 🥉'));
+          dispatch(triggerCelebration('Bronzen trofee ontgrendeld! 🥉'));
         } else if (newStreak === 7) {
-          dispatch(triggerCelebration('Zilveren Trofee Ontgrendeld! 🥈'));
+          dispatch(triggerCelebration('Zilveren trofee ontgrendeld! 🥈'));
         } else if (newStreak === 14) {
-          dispatch(triggerCelebration('Gouden Trofee Ontgrendeld! 🥇'));
+          dispatch(triggerCelebration('Gouden trofee ontgrendeld! 🥇'));
         } else if (newStreak === 30) {
-          dispatch(triggerCelebration('Diamanten Trofee Ontgrendeld! 💎'));
+          dispatch(triggerCelebration('Diamanten trofee ontgrendeld! 💎'));
         } else {
           dispatch(triggerCelebration(`${newStreak} dagen streak! 🔥`));
         }
@@ -245,7 +147,48 @@ export function Dashboard() {
     }
   };
 
+  // Timer handlers
+  const handleStartTimer = async (habitId: string) => {
+    await dispatch(startTimer(habitId));
+  };
+
+  const handlePauseTimer = async (habitId: string) => {
+    await dispatch(pauseTimer(habitId));
+  };
+
+  const handleResumeTimer = async (habitId: string) => {
+    await dispatch(startTimer(habitId));
+  };
+
+  const handleSaveTimer = async (habitId: string, elapsedMs: number, autoRestart: boolean = true) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    // Convert ms to the habit's unit (assuming minutes for duration)
+    const minutes = Math.round(elapsedMs / 1000 / 60 * 10) / 10; // 1 decimal place
+
+    await dispatch(stopAndSaveTimer({ habitId, autoRestart }));
+    await dispatch(checkInWithValue({ habitId, value: minutes }));
+    await dispatch(loadRaceData(habitId));
+    await dispatch(loadEntriesForHabit(habitId));
+
+    // Update streaks
+    const newStreak = await getCurrentStreak(habitId);
+    setStreaks((prev) => ({ ...prev, [habitId]: newStreak }));
+
+    dispatch(triggerCelebration(`${minutes} minuten opgeslagen! ${autoRestart ? 'Nieuwe poging gestart!' : ''}`));
+  };
+
+  const handleDeleteTimer = async (habitId: string) => {
+    await dispatch(deleteTimer(habitId));
+  };
+
   const today = getTodayDate();
+
+  // Duration habits that could have timers
+  const durationHabits = habits.filter(h =>
+    h.type === 'quantifiable' && h.metricType === 'duration'
+  );
 
   return (
     <div className="min-h-screen pb-24">
@@ -261,45 +204,25 @@ export function Dashboard() {
             </h1>
             <p className="text-sm text-white/40">Race tegen jezelf</p>
           </button>
-          <button
-            onClick={() => navigate('/settings')}
-            className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        {habits.length > 0 && (
-          <div className="px-4 pb-2 flex gap-2">
+          <div className="flex items-center gap-2">
+            {activeTimers.length > 0 && (
+              <div className="flex items-center gap-1 px-3 py-1 bg-green-500/20 rounded-full">
+                <Timer className="w-4 h-4 text-green-400 animate-pulse" />
+                <span className="text-sm text-green-400 font-medium">{activeTimers.length}</span>
+              </div>
+            )}
             <button
-              onClick={() => setActiveTab('habits')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                activeTab === 'habits'
-                  ? 'bg-vapor-cyan/20 text-vapor-cyan border border-vapor-cyan/50'
-                  : 'bg-white/5 text-white/60 hover:bg-white/10'
-              }`}
+              onClick={() => navigate('/settings')}
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
             >
-              <List className="w-4 h-4" />
-              Gewoontes
-            </button>
-            <button
-              onClick={() => setActiveTab('races')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                activeTab === 'races'
-                  ? 'bg-vapor-pink/20 text-vapor-pink border border-vapor-pink/50'
-                  : 'bg-white/5 text-white/60 hover:bg-white/10'
-              }`}
-            >
-              <Grid3X3 className="w-4 h-4" />
-              Races
+              <Settings className="w-5 h-5" />
             </button>
           </div>
-        )}
+        </div>
       </header>
 
       {/* Main content */}
-      <main className="px-4 py-6">
+      <main className="px-4 py-6 space-y-6">
         {habits.length === 0 ? (
           // Empty state
           <motion.div
@@ -318,65 +241,183 @@ export function Dashboard() {
               onClick={() => dispatch(setShowAddHabitModal(true))}
               className="px-6 py-3 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white font-semibold rounded-xl glow-button"
             >
-              Voeg Je Eerste Gewoonte Toe
+              Voeg je eerste gewoonte toe
             </motion.button>
           </motion.div>
-        ) : activeTab === 'habits' ? (
-          // Habits list view
-          <div className="space-y-4">
-            <AnimatePresence mode="popLayout">
-              {habits.map((habit) => {
-                const habitEntries = entries[habit.id] || [];
-                const todayEntry = habitEntries.find((e) => e.date === today);
-
-                return (
-                  <HabitCard
-                    key={habit.id}
-                    habit={habit}
-                    raceData={raceData[habit.id]}
-                    todayEntry={todayEntry}
-                    currentStreak={streaks[habit.id] || 0}
-                    onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
-                    onViewDetails={() => handleViewDetails(habit)}
-                  />
-                );
-              })}
-            </AnimatePresence>
-          </div>
         ) : (
-          // Races grid view
-          <div className="space-y-4">
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-4 text-xs text-white/60 mb-2">
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-red-500" /> Voor je
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-yellow-400" /> Huidige positie
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-green-500" /> Verslagen
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded ring-2 ring-vapor-gold" /> PR
-              </span>
-            </div>
+          <>
+            {/* Live Timers Section */}
+            {activeTimers.length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2">
+                  <Timer className="w-4 h-4" />
+                  Lopende pogingen
+                </h2>
+                <div className="space-y-3">
+                  <AnimatePresence mode="popLayout">
+                    {activeTimers.map((timer) => {
+                      const habit = habits.find(h => h.id === timer.habitId);
+                      if (!habit) return null;
 
-            {/* Race tiles grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <AnimatePresence mode="popLayout">
-                {habits.map((habit) => (
-                  <RaceTile
-                    key={habit.id}
-                    habit={habit}
-                    raceData={raceData[habit.id]}
-                    streak={streaks[habit.id] || 0}
-                    onClick={() => navigate(`/habit/${habit.id}`)}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
+                      return (
+                        <LiveTimerCard
+                          key={timer.id}
+                          timer={timer}
+                          habit={habit}
+                          previousBest={bestValues[habit.id]}
+                          previousEntry={previousEntries[habit.id] ? {
+                            id: '',
+                            habitId: habit.id,
+                            date: previousEntries[habit.id].date,
+                            value: previousEntries[habit.id].value,
+                            createdAt: 0,
+                            updatedAt: 0,
+                          } : undefined}
+                          onPause={() => handlePauseTimer(habit.id)}
+                          onResume={() => handleResumeTimer(habit.id)}
+                          onSave={(elapsedMs) => handleSaveTimer(habit.id, elapsedMs, true)}
+                          onDelete={() => handleDeleteTimer(habit.id)}
+                        />
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </section>
+            )}
+
+            {/* Start new timer buttons for duration habits without active timer */}
+            {durationHabits.filter(h => !activeTimers.some(t => t.habitId === h.id)).length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-white/60 mb-3">Start een timer</h2>
+                <div className="flex flex-wrap gap-2">
+                  {durationHabits
+                    .filter(h => !activeTimers.some(t => t.habitId === h.id))
+                    .map((habit) => (
+                      <motion.button
+                        key={habit.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleStartTimer(habit.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-vapor-darker/50 rounded-full border border-white/10 hover:border-vapor-cyan/50 transition-colors"
+                      >
+                        <span>{habit.emoji}</span>
+                        <span className="text-sm text-white/80">{habit.name}</span>
+                        <Timer className="w-4 h-4 text-vapor-cyan" />
+                      </motion.button>
+                    ))}
+                </div>
+              </section>
+            )}
+
+            {/* Integrated Habits & Races View */}
+            <section>
+              <h2 className="text-sm font-medium text-white/60 mb-3">Jouw gewoontes & races</h2>
+
+              {/* Legend */}
+              <div className="flex items-center justify-start gap-4 text-xs text-white/40 mb-3">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded bg-red-500" /> Voor
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded bg-yellow-400" /> Nu
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded bg-green-500" /> Verslagen
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <AnimatePresence mode="popLayout">
+                  {habits.map((habit) => {
+                    const habitEntries = entries[habit.id] || [];
+                    const todayEntry = habitEntries.find((e) => e.date === today);
+                    const habitRaceData = raceData[habit.id];
+                    const streak = streaks[habit.id] || 0;
+
+                    // Calculate race info text for boolean habits
+                    let raceInfoText = '';
+                    if (habit.type === 'boolean' && habitRaceData) {
+                      const prStreak = habitRaceData.previousRecord?.value || 0;
+                      const daysToGo = prStreak - streak;
+                      if (daysToGo > 0) {
+                        raceInfoText = `Nog ${daysToGo} dag${daysToGo !== 1 ? 'en' : ''} tot je PR`;
+                      } else if (streak > 0) {
+                        raceInfoText = '🏆 Nieuw persoonlijk record!';
+                      }
+                    }
+
+                    return (
+                      <motion.div
+                        key={habit.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl border border-white/10 overflow-hidden"
+                      >
+                        {/* Habit Card Header */}
+                        <div className="p-4">
+                          <HabitCard
+                            habit={habit}
+                            raceData={habitRaceData}
+                            todayEntry={todayEntry}
+                            currentStreak={streak}
+                            onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
+                            onViewDetails={() => handleViewDetails(habit)}
+                          />
+                        </div>
+
+                        {/* Race Progress Bar */}
+                        {habitRaceData && habitRaceData.totalPositions > 0 && (
+                          <div
+                            className="px-4 pb-4 cursor-pointer"
+                            onClick={() => navigate(`/habit/${habit.id}`)}
+                          >
+                            {/* Mini race visualization */}
+                            <div className="flex gap-1 mb-2">
+                              {habitRaceData.positions.slice(0, 15).map((pos, index) => {
+                                const isAhead = pos.position < habitRaceData.currentPosition;
+                                const isCurrent = pos.isCurrent || pos.position === habitRaceData.currentPosition;
+                                const isPR = pos.isPersonalRecord;
+
+                                let bgColor = 'bg-green-500';
+                                if (isAhead) bgColor = 'bg-red-500';
+                                else if (isCurrent) bgColor = 'bg-yellow-400';
+
+                                return (
+                                  <motion.div
+                                    key={pos.position}
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: index * 0.02 }}
+                                    className={`w-4 h-4 rounded ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrent ? 'animate-pulse' : ''}`}
+                                  />
+                                );
+                              })}
+                              {habitRaceData.totalPositions > 15 && (
+                                <span className="text-xs text-white/40 self-center ml-1">
+                                  +{habitRaceData.totalPositions - 15}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Position text */}
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/60">
+                                Positie <span className="text-white font-bold">{habitRaceData.currentPosition}</span> van {habitRaceData.totalPositions}
+                              </span>
+                              {raceInfoText && (
+                                <span className="text-vapor-cyan">{raceInfoText}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </section>
+          </>
         )}
       </main>
 

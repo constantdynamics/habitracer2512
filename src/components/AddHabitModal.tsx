@@ -91,7 +91,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
           {/* Header */}
           <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
             <h2 className="font-display font-bold text-xl text-white">
-              {view === 'presets' ? 'Gewoonte Toevoegen' : 'Eigen Gewoonte'}
+              {view === 'presets' ? 'Gewoonte toevoegen' : 'Eigen gewoonte'}
             </h2>
             <button
               onClick={onClose}
@@ -111,7 +111,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                   : 'text-white/60 hover:text-white'
               }`}
             >
-              Populaire Gewoontes
+              Populaire gewoontes
             </button>
             <button
               onClick={() => setView('custom')}
@@ -121,7 +121,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                   : 'text-white/60 hover:text-white'
               }`}
             >
-              Zelf Maken
+              Zelf maken
             </button>
           </div>
 
@@ -216,7 +216,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                 {habitType === 'quantifiable' && (
                   <>
                     <div>
-                      <label className="text-sm text-white/60 mb-2 block">Metriek Type</label>
+                      <label className="text-sm text-white/60 mb-2 block">Metriek type</label>
                       <div className="grid grid-cols-3 gap-2">
                         {METRIC_TYPES.map((m) => (
                           <button
@@ -236,7 +236,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
 
                     {/* Auto tracking */}
                     <div>
-                      <label className="text-sm text-white/60 mb-2 block">Automatisch Meten</label>
+                      <label className="text-sm text-white/60 mb-2 block">Automatisch meten</label>
                       <div className="grid grid-cols-2 gap-2">
                         {AUTO_TRACK_OPTIONS.map((opt) => (
                           <button
@@ -312,7 +312,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                           : 'bg-vapor-darker/50 text-white/60 hover:text-white'
                       }`}
                     >
-                      Specifieke Dagen
+                      Specifieke dagen
                     </button>
                   </div>
                 </div>
@@ -354,7 +354,7 @@ export function AddHabitModal({ onAddPreset, onAddCustom, onClose }: AddHabitMod
                 disabled={!name.trim()}
                 className="w-full py-3 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white font-semibold rounded-xl glow-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Gewoonte Aanmaken
+                Gewoonte aanmaken
               </motion.button>
             </div>
           )}

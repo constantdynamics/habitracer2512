@@ -134,7 +134,7 @@ export function HabitDetail() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
         >
-          <h2 className="text-sm font-medium text-white/60 mb-3">Race Positie</h2>
+          <h2 className="text-sm font-medium text-white/60 mb-3">Race positie</h2>
           <RaceVisualization raceData={habitRaceData} />
 
           {habitRaceData?.nextTarget && (
@@ -199,7 +199,7 @@ export function HabitDetail() {
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">🔥</span>
-              <span className="text-sm text-white/60">Huidige Streak</span>
+              <span className="text-sm text-white/60">Huidige streak</span>
             </div>
             <div className="text-3xl font-bold text-white">{currentStreak}</div>
             <div className="text-xs text-white/40">dagen</div>

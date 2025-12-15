@@ -110,6 +110,16 @@ export interface HabitStats {
   trendPercentage: number;
 }
 
+// Active Timer Types (persistent, survives app close)
+export interface ActiveTimer {
+  id: string;
+  habitId: string;
+  startedAt: number; // Unix timestamp when timer started
+  pausedAt?: number; // Unix timestamp when paused (if paused)
+  accumulatedMs: number; // Total accumulated time before current session
+  isRunning: boolean;
+}
+
 // App State Types
 export interface OnboardingState {
   completed: boolean;

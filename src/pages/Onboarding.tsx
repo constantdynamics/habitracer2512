@@ -94,7 +94,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       className="text-center px-6"
     >
       <h2 className="font-display text-2xl font-bold text-white mb-6">
-        Hoe de Race Werkt
+        Hoe de race werkt
       </h2>
       <div className="bg-vapor-darker/50 rounded-xl p-6 mb-6">
         <div className="flex items-center justify-center gap-2 mb-4">
@@ -176,7 +176,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     >
       <div className="text-center mb-6">
         <h2 className="font-display text-2xl font-bold text-white mb-2">
-          Kies Je Eerste Gewoontes
+          Kies je eerste gewoontes
         </h2>
         <p className="text-white/60">
           Selecteer gewoontes om te beginnen, of sla over om later eigen gewoontes te maken.
@@ -254,7 +254,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         >
           {step === 2 ? (
             selectedHabits.length > 0 ? (
-              "Laten We Racen!"
+              "Laten we racen!"
             ) : (
               "Overslaan"
             )

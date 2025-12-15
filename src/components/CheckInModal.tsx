@@ -374,7 +374,7 @@ export function CheckInModal({
                 onClick={handleSaveAndContinue}
                 className="w-full py-3 bg-vapor-darker text-white font-medium rounded-xl border border-white/10 hover:bg-vapor-darkest transition-colors"
               >
-                Opslaan & Nieuwe Poging
+                Opslaan & nieuwe poging
               </motion.button>
             )}
           </div>

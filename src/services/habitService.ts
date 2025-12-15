@@ -388,11 +388,15 @@ export async function calculateRaceData(habitId: string): Promise<RaceData> {
     }
   }
 
+  // Ensure currentPosition never exceeds totalPositions
+  const totalPositions = positions.length;
+  const validCurrentPosition = totalPositions > 0 ? Math.min(currentPosition, totalPositions) : 0;
+
   return {
     habitId,
     currentValue,
-    currentPosition,
-    totalPositions: positions.length || 1,
+    currentPosition: validCurrentPosition,
+    totalPositions,
     positions: positions.slice(0, 10),
     nextTarget,
     previousRecord: personalRecord ? {
