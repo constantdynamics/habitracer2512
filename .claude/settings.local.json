@@ -9,7 +9,9 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: HabitRacer PWA\n\nA habit tracking app where you race against your past self.\n\nFeatures:\n- Race visualization with colored blocks\n- Boolean and quantifiable habits\n- Trophy system (Bronze, Silver, Gold, Diamond)\n- Predictive analytics\n- Offline-first with IndexedDB\n- Vaporwave design theme\n- PWA support\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git branch:*)",
       "Bash(git remote add:*)",
-      "Bash(git push -u origin main)"
+      "Bash(git push -u origin main)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
