@@ -10,8 +10,6 @@ interface RaceTileProps {
   todayEntry?: HabitEntry;
   currentStreak: number;
   activeTimer?: ActiveTimer;
-  previousBest?: number;
-  previousEntry?: { value: number; date: string };
   onQuickCheckIn: () => void;
   onStartTimer: () => void;
   onPauseTimer: () => void;
@@ -21,78 +19,108 @@ interface RaceTileProps {
   onClick: () => void;
 }
 
-// Circuit track component that wraps around the tile
+// Circuit track with progress bar around the tile border using CSS
 function CircuitTrack({
   positions,
   currentPosition,
-  isRunning
+  progressPercent,
 }: {
   positions: RaceData['positions'];
   currentPosition: number;
   totalPositions: number;
-  isRunning: boolean;
+  progressPercent: number;
 }) {
-  const positionCount = Math.min(positions.length + 1, 10); // +1 for current attempt
+  // Positions around the track: distribute evenly
+  // Track goes: top (left to right), right (top to bottom), bottom (right to left), left (bottom to top)
+  const totalSlots = Math.max(positions.length + 1, 8);
 
-  const getTrackPosition = (index: number, total: number) => {
-    // Distribute positions evenly around the track
-    const percentage = (index / total) * 100;
+  const getPositionStyle = (index: number): React.CSSProperties => {
+    const percentage = (index / totalSlots) * 100;
 
-    // Convert to position around rectangle (clockwise from top-left)
-    // Top: 0-25%, Right: 25-50%, Bottom: 50-75%, Left: 75-100%
-    if (percentage <= 25) {
-      // Top edge (left to right)
-      return { top: '0%', left: `${percentage * 4}%`, transform: 'translate(-50%, -50%)' };
-    } else if (percentage <= 50) {
-      // Right edge (top to bottom)
-      return { top: `${(percentage - 25) * 4}%`, right: '0%', transform: 'translate(50%, -50%)' };
-    } else if (percentage <= 75) {
-      // Bottom edge (right to left)
-      return { bottom: '0%', right: `${(percentage - 50) * 4}%`, transform: 'translate(50%, 50%)' };
+    // Divide the perimeter into 4 sections (25% each side)
+    // Start from top-left corner and go clockwise
+    if (percentage < 25) {
+      // Top edge: left to right
+      const x = (percentage / 25) * 100;
+      return { top: '-12px', left: `${x}%`, transform: 'translateX(-50%)' };
+    } else if (percentage < 50) {
+      // Right edge: top to bottom
+      const y = ((percentage - 25) / 25) * 100;
+      return { top: `${y}%`, right: '-12px', transform: 'translateY(-50%)' };
+    } else if (percentage < 75) {
+      // Bottom edge: right to left
+      const x = 100 - ((percentage - 50) / 25) * 100;
+      return { bottom: '-12px', left: `${x}%`, transform: 'translateX(-50%)' };
     } else {
-      // Left edge (bottom to top)
-      return { bottom: `${(percentage - 75) * 4}%`, left: '0%', transform: 'translate(-50%, 50%)' };
+      // Left edge: bottom to top
+      const y = 100 - ((percentage - 75) / 25) * 100;
+      return { top: `${y}%`, left: '-12px', transform: 'translateY(-50%)' };
     }
   };
 
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {/* Track line */}
-      <div className="absolute inset-2 rounded-xl border-2 border-white/10" />
+  // Progress bar using CSS conic-gradient on a pseudo-element via inline style
+  // This creates a border that fills up around the perimeter
+  const progressDegrees = (progressPercent / 100) * 360;
 
-      {/* Position markers */}
-      {positions.slice(0, 8).map((pos, index) => {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
+      {/* Background track border */}
+      <div
+        className="absolute inset-0 rounded-xl"
+        style={{
+          border: '3px solid rgba(255,255,255,0.1)',
+        }}
+      />
+
+      {/* Progress track using conic-gradient */}
+      <div
+        className="absolute inset-[-3px] rounded-xl overflow-hidden"
+        style={{
+          background: `conic-gradient(from 0deg, #ff6b9d 0deg, #00f5d4 ${progressDegrees}deg, transparent ${progressDegrees}deg)`,
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+          padding: '3px',
+          transition: 'all 0.15s ease-out',
+        }}
+      />
+
+      {/* Position blocks around the circuit */}
+      {positions.slice(0, 10).map((pos, index) => {
         const positionNumber = index + 1;
         const isCurrentPos = positionNumber === currentPosition;
         const isAhead = positionNumber < currentPosition;
         const isPR = pos.isPersonalRecord;
 
-        let bgColor = 'bg-green-500'; // Verslagen
+        let bgColor = 'bg-green-500'; // Verslagen (beaten)
         if (isCurrentPos) bgColor = 'bg-yellow-400';
-        else if (isAhead) bgColor = 'bg-red-500';
+        else if (isAhead) bgColor = 'bg-red-500'; // Still ahead
 
-        const style = getTrackPosition(index, positionCount);
+        const style = getPositionStyle(index);
 
         return (
-          <motion.div
+          <div
             key={index}
-            className={`absolute w-3 h-3 rounded-full ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrentPos && isRunning ? 'animate-pulse ring-2 ring-white' : ''}`}
+            className={`absolute w-5 h-5 rounded ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrentPos ? 'ring-2 ring-white animate-pulse' : ''} flex items-center justify-center shadow-lg`}
             style={style}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: index * 0.05 }}
-          />
+          >
+            <span className="text-[9px] font-bold text-white drop-shadow-sm">
+              {positionNumber}
+            </span>
+          </div>
         );
       })}
 
-      {/* Current attempt marker if not in positions */}
+      {/* Current attempt marker if beyond existing positions */}
       {currentPosition > positions.length && (
-        <motion.div
-          className="absolute w-3 h-3 rounded-full bg-yellow-400 ring-2 ring-white animate-pulse"
-          style={getTrackPosition(positions.length, positionCount)}
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-        />
+        <div
+          className="absolute w-5 h-5 rounded bg-yellow-400 ring-2 ring-white animate-pulse flex items-center justify-center shadow-lg"
+          style={getPositionStyle(positions.length)}
+        >
+          <span className="text-[9px] font-bold text-white drop-shadow-sm">
+            {currentPosition}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -145,6 +173,7 @@ export function RaceTile({
         nextTarget: raceData?.nextTarget,
         distanceToNext: null as number | null,
         distanceToBest: null as number | null,
+        progressPercent: 0,
       };
     }
 
@@ -157,6 +186,7 @@ export function RaceTile({
         nextTarget: undefined,
         distanceToNext: null,
         distanceToBest: null,
+        progressPercent: 0,
       };
     }
 
@@ -178,6 +208,7 @@ export function RaceTile({
 
     let distanceToNext: number | null = null;
     let nextTarget = raceData.nextTarget;
+    let progressPercent = 0;
 
     if (livePosition > 1) {
       const nextPos = positions[livePosition - 2];
@@ -189,7 +220,21 @@ export function RaceTile({
           position: livePosition - 1,
           estimatedDate: undefined,
         };
+        // Calculate progress to next position
+        const prevPos = positions[livePosition - 1];
+        if (prevPos) {
+          const prevValueMs = prevPos.value * 60 * 1000;
+          const range = nextValueMs - prevValueMs;
+          if (range > 0) {
+            progressPercent = ((elapsedMs - prevValueMs) / range) * 100;
+          }
+        } else {
+          progressPercent = (elapsedMs / nextValueMs) * 100;
+        }
       }
+    } else {
+      // Already in first place
+      progressPercent = 100;
     }
 
     let distanceToBest: number | null = null;
@@ -206,6 +251,7 @@ export function RaceTile({
       nextTarget,
       distanceToNext,
       distanceToBest,
+      progressPercent: Math.max(0, Math.min(progressPercent, 100)),
     };
   }, [raceData, isDuration, activeTimer, currentMinutes, elapsedMs, habit.direction]);
 
@@ -213,39 +259,31 @@ export function RaceTile({
   const displayCurrentPosition = activeTimer && isDuration ? liveRaceData.currentPosition : (raceData?.currentPosition || 0);
   const displayTotalPositions = activeTimer && isDuration ? liveRaceData.totalPositions : (raceData?.totalPositions || 0);
 
-  // Progress bar calculation
-  const progressToNext = useMemo(() => {
-    if (!activeTimer || !isDuration || !liveRaceData.nextTarget) return null;
-    const targetMs = liveRaceData.nextTarget.value * 60 * 1000;
-    if (targetMs <= 0) return null;
-    return Math.min((elapsedMs / targetMs) * 100, 100);
-  }, [activeTimer, isDuration, liveRaceData.nextTarget, elapsedMs]);
-
   // Tile border color
   let borderColor = 'border-white/10';
   if (activeTimer?.isRunning) {
-    borderColor = 'border-green-500/50';
+    borderColor = 'border-transparent'; // Hide border when circuit is shown
   } else if (activeTimer) {
     borderColor = 'border-yellow-500/50';
   } else if (isCompleted) {
     borderColor = 'border-vapor-cyan/30';
   }
 
-  const showCircuitTrack = activeTimer && isDuration && displayPositions.length > 0;
+  const showCircuitTrack = activeTimer && isDuration;
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 border-2 ${borderColor} flex flex-col min-h-[160px]`}
+      className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 border-2 ${borderColor} flex flex-col min-h-[180px]`}
     >
       {/* Circuit track visualization during active timer */}
-      {showCircuitTrack && (
+      {showCircuitTrack && displayPositions.length > 0 && (
         <CircuitTrack
           positions={displayPositions}
           currentPosition={displayCurrentPosition}
           totalPositions={displayTotalPositions}
-          isRunning={activeTimer?.isRunning || false}
+          progressPercent={liveRaceData.progressPercent}
         />
       )}
 
@@ -288,23 +326,23 @@ export function RaceTile({
               )}
             </div>
           )}
+        </div>
+      )}
 
-          {/* Progress bar */}
-          {progressToNext !== null && displayCurrentPosition > 1 && (
-            <div className="mt-3 px-2">
-              <div className="h-2 bg-vapor-darker rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-vapor-pink to-vapor-cyan"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressToNext}%` }}
-                  transition={{ duration: 0.1 }}
-                />
-              </div>
-              <div className="text-[10px] text-white/50 mt-1 text-center">
-                {progressToNext.toFixed(0)}% naar #{displayCurrentPosition - 1}
-              </div>
+      {/* Position indicator in center */}
+      {showCircuitTrack && (
+        <div className="flex-1 flex items-center justify-center relative z-10" onClick={onClick}>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-white">
+              #{displayCurrentPosition}
             </div>
-          )}
+            <div className="text-sm text-white/60">
+              van {displayTotalPositions}
+            </div>
+            {displayCurrentPosition === 1 && (
+              <div className="text-sm text-green-400 font-medium mt-1">🏆 Leidt!</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -325,9 +363,11 @@ export function RaceTile({
               return (
                 <div
                   key={index}
-                  className={`w-5 h-5 rounded-sm ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrentPosition ? 'ring-2 ring-white animate-pulse' : ''}`}
+                  className={`w-6 h-6 rounded flex items-center justify-center ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrentPosition ? 'ring-2 ring-white animate-pulse' : ''}`}
                   title={`#${positionNumber}: ${pos.value.toFixed(1)} min`}
-                />
+                >
+                  <span className="text-[10px] font-bold text-white">{positionNumber}</span>
+                </div>
               );
             })}
             {displayTotalPositions > 10 && (
@@ -336,23 +376,6 @@ export function RaceTile({
           </div>
           <div className="text-xs text-white/60 text-center font-medium">
             #{displayCurrentPosition}/{displayTotalPositions}
-          </div>
-        </div>
-      )}
-
-      {/* Position indicator when circuit is shown */}
-      {showCircuitTrack && (
-        <div className="flex-1 flex items-center justify-center relative z-10" onClick={onClick}>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-white">
-              #{displayCurrentPosition}
-            </div>
-            <div className="text-xs text-white/50">
-              van {displayTotalPositions}
-            </div>
-            {displayCurrentPosition === 1 && (
-              <div className="text-sm text-green-400 font-medium mt-1">🏆 Leidt!</div>
-            )}
           </div>
         </div>
       )}
@@ -368,8 +391,8 @@ export function RaceTile({
       {displayPositions.length === 0 && activeTimer && isDuration && (
         <div className="flex-1 flex items-center justify-center relative z-10" onClick={onClick}>
           <div className="text-center">
-            <div className="text-xl font-bold text-vapor-cyan">#1</div>
-            <div className="text-xs text-white/50">Eerste poging!</div>
+            <div className="text-2xl font-bold text-vapor-cyan">#1</div>
+            <div className="text-sm text-white/60">Eerste poging!</div>
           </div>
         </div>
       )}
