@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Settings, Timer } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadHabits,
@@ -20,11 +20,10 @@ import {
   deleteTimer,
 } from '../store/timersSlice';
 import { setShowAddHabitModal, triggerCelebration, dismissCelebration } from '../store/uiSlice';
-import { HabitCard } from '../components/HabitCard';
 import { AddHabitModal } from '../components/AddHabitModal';
 import { CheckInModal } from '../components/CheckInModal';
 import { Celebration } from '../components/Celebration';
-import { LiveTimerCard } from '../components/LiveTimerCard';
+import { RaceTile } from '../components/RaceTile';
 import { getTodayDate } from '../db';
 import { Habit, PresetHabit } from '../types';
 import { getCurrentStreak, getEntriesForHabit } from '../services/habitService';
@@ -60,7 +59,7 @@ export function Dashboard() {
           const allEntries = await getEntriesForHabit(h.id);
           const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
           const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
-          const previous = sortedEntries.length > 1 ? sortedEntries[1] : sortedEntries[0];
+          const previous = sortedEntries.length > 0 ? sortedEntries[0] : null;
           return { id: h.id, streak, best, previous };
         })
       ).then((results) => {
@@ -125,6 +124,18 @@ export function Dashboard() {
     const newStreak = await getCurrentStreak(checkInHabit.id);
     setStreaks((prev) => ({ ...prev, [checkInHabit.id]: newStreak }));
 
+    // Reload entries to update best/previous
+    const allEntries = await getEntriesForHabit(checkInHabit.id);
+    const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
+    const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
+    setBestValues((prev) => ({ ...prev, [checkInHabit.id]: best }));
+    if (sortedEntries.length > 0) {
+      setPreviousEntries((prev) => ({
+        ...prev,
+        [checkInHabit.id]: { value: sortedEntries[0].value, date: sortedEntries[0].date }
+      }));
+    }
+
     // Celebration for goal reached
     if (checkInHabit.goalValue && value >= checkInHabit.goalValue) {
       dispatch(triggerCelebration('Doel behaald! 🎯'));
@@ -140,7 +151,7 @@ export function Dashboard() {
   };
 
   const handleViewDetails = (habit: Habit) => {
-    if (habit.type === 'quantifiable') {
+    if (habit.type === 'quantifiable' && habit.metricType !== 'duration') {
       setCheckInHabit(habit);
     } else {
       navigate(`/habit/${habit.id}`);
@@ -160,23 +171,35 @@ export function Dashboard() {
     await dispatch(startTimer(habitId));
   };
 
-  const handleSaveTimer = async (habitId: string, elapsedMs: number, autoRestart: boolean = true) => {
+  const handleSaveTimer = async (habitId: string, elapsedMs: number) => {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    // Convert ms to the habit's unit (assuming minutes for duration)
-    const minutes = Math.round(elapsedMs / 1000 / 60 * 10) / 10; // 1 decimal place
+    // Convert ms to minutes with 1 decimal place
+    const minutes = Math.round(elapsedMs / 1000 / 60 * 10) / 10;
 
-    await dispatch(stopAndSaveTimer({ habitId, autoRestart }));
+    // Stop timer WITHOUT auto-restart
+    await dispatch(stopAndSaveTimer({ habitId, autoRestart: false }));
     await dispatch(checkInWithValue({ habitId, value: minutes }));
     await dispatch(loadRaceData(habitId));
     await dispatch(loadEntriesForHabit(habitId));
 
-    // Update streaks
+    // Update streaks and best values
     const newStreak = await getCurrentStreak(habitId);
     setStreaks((prev) => ({ ...prev, [habitId]: newStreak }));
 
-    dispatch(triggerCelebration(`${minutes} minuten opgeslagen! ${autoRestart ? 'Nieuwe poging gestart!' : ''}`));
+    const allEntries = await getEntriesForHabit(habitId);
+    const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
+    const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
+    setBestValues((prev) => ({ ...prev, [habitId]: best }));
+    if (sortedEntries.length > 0) {
+      setPreviousEntries((prev) => ({
+        ...prev,
+        [habitId]: { value: sortedEntries[0].value, date: sortedEntries[0].date }
+      }));
+    }
+
+    dispatch(triggerCelebration(`${minutes} minuten opgeslagen!`));
   };
 
   const handleDeleteTimer = async (habitId: string) => {
@@ -185,10 +208,8 @@ export function Dashboard() {
 
   const today = getTodayDate();
 
-  // Duration habits that could have timers
-  const durationHabits = habits.filter(h =>
-    h.type === 'quantifiable' && h.metricType === 'duration'
-  );
+  // Count active timers for header
+  const activeTimerCount = activeTimers.filter(t => t.isRunning).length;
 
   return (
     <div className="min-h-screen pb-24">
@@ -197,32 +218,31 @@ export function Dashboard() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-vapor-dark/80 backdrop-blur-lg border-b border-white/10 safe-area-top">
-        <div className="px-4 py-4 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate('/')} className="text-left hover:opacity-80 transition-opacity">
-            <h1 className="font-display font-bold text-2xl text-white">
+            <h1 className="font-display font-bold text-xl text-white">
               Habit<span className="text-vapor-cyan">Racer</span>
             </h1>
-            <p className="text-sm text-white/40">Race tegen jezelf</p>
           </button>
           <div className="flex items-center gap-2">
-            {activeTimers.length > 0 && (
-              <div className="flex items-center gap-1 px-3 py-1 bg-green-500/20 rounded-full">
-                <Timer className="w-4 h-4 text-green-400 animate-pulse" />
-                <span className="text-sm text-green-400 font-medium">{activeTimers.length}</span>
+            {activeTimerCount > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-green-400 font-medium">{activeTimerCount}</span>
               </div>
             )}
             <button
               onClick={() => navigate('/settings')}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="px-4 py-6 space-y-6">
+      <main className="px-3 py-4">
         {habits.length === 0 ? (
           // Empty state
           <motion.div
@@ -230,193 +250,70 @@ export function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-16"
           >
-            <div className="text-6xl mb-4">🏁</div>
-            <h2 className="text-xl font-semibold text-white mb-2">Klaar om te racen?</h2>
-            <p className="text-white/60 mb-6">
-              Voeg je eerste gewoonte toe om tegen jezelf te strijden
+            <div className="text-5xl mb-4">🏁</div>
+            <h2 className="text-lg font-semibold text-white mb-2">Klaar om te racen?</h2>
+            <p className="text-white/60 text-sm mb-6">
+              Voeg je eerste gewoonte toe
             </p>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => dispatch(setShowAddHabitModal(true))}
-              className="px-6 py-3 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white font-semibold rounded-xl glow-button"
+              className="px-5 py-2.5 bg-gradient-to-r from-vapor-pink to-vapor-cyan text-white text-sm font-semibold rounded-xl glow-button"
             >
               Voeg je eerste gewoonte toe
             </motion.button>
           </motion.div>
         ) : (
           <>
-            {/* Live Timers Section */}
-            {activeTimers.length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2">
-                  <Timer className="w-4 h-4" />
-                  Lopende pogingen
-                </h2>
-                <div className="space-y-3">
-                  <AnimatePresence mode="popLayout">
-                    {activeTimers.map((timer) => {
-                      const habit = habits.find(h => h.id === timer.habitId);
-                      if (!habit) return null;
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-3 text-[10px] text-white/40 mb-3">
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm bg-red-500" /> Voor
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm bg-yellow-400" /> Nu
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm bg-green-500" /> Verslagen
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm ring-1 ring-vapor-gold bg-transparent" /> PR
+              </span>
+            </div>
 
-                      return (
-                        <LiveTimerCard
-                          key={timer.id}
-                          timer={timer}
-                          habit={habit}
-                          previousBest={bestValues[habit.id]}
-                          previousEntry={previousEntries[habit.id] ? {
-                            id: '',
-                            habitId: habit.id,
-                            date: previousEntries[habit.id].date,
-                            value: previousEntries[habit.id].value,
-                            createdAt: 0,
-                            updatedAt: 0,
-                          } : undefined}
-                          onPause={() => handlePauseTimer(habit.id)}
-                          onResume={() => handleResumeTimer(habit.id)}
-                          onSave={(elapsedMs) => handleSaveTimer(habit.id, elapsedMs, true)}
-                          onDelete={() => handleDeleteTimer(habit.id)}
-                        />
-                      );
-                    })}
-                  </AnimatePresence>
-                </div>
-              </section>
-            )}
+            {/* 2-column grid of race tiles */}
+            <div className="grid grid-cols-2 gap-3">
+              <AnimatePresence mode="popLayout">
+                {habits.map((habit) => {
+                  const habitEntries = entries[habit.id] || [];
+                  const todayEntry = habitEntries.find((e) => e.date === today);
+                  const habitRaceData = raceData[habit.id];
+                  const streak = streaks[habit.id] || 0;
+                  const timer = activeTimers.find(t => t.habitId === habit.id);
 
-            {/* Start new timer buttons for duration habits without active timer */}
-            {durationHabits.filter(h => !activeTimers.some(t => t.habitId === h.id)).length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-white/60 mb-3">Start een timer</h2>
-                <div className="flex flex-wrap gap-2">
-                  {durationHabits
-                    .filter(h => !activeTimers.some(t => t.habitId === h.id))
-                    .map((habit) => (
-                      <motion.button
-                        key={habit.id}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleStartTimer(habit.id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-vapor-darker/50 rounded-full border border-white/10 hover:border-vapor-cyan/50 transition-colors"
-                      >
-                        <span>{habit.emoji}</span>
-                        <span className="text-sm text-white/80">{habit.name}</span>
-                        <Timer className="w-4 h-4 text-vapor-cyan" />
-                      </motion.button>
-                    ))}
-                </div>
-              </section>
-            )}
-
-            {/* Integrated Habits & Races View */}
-            <section>
-              <h2 className="text-sm font-medium text-white/60 mb-3">Jouw gewoontes & races</h2>
-
-              {/* Legend */}
-              <div className="flex items-center justify-start gap-4 text-xs text-white/40 mb-3">
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded bg-red-500" /> Voor
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded bg-yellow-400" /> Nu
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded bg-green-500" /> Verslagen
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <AnimatePresence mode="popLayout">
-                  {habits.map((habit) => {
-                    const habitEntries = entries[habit.id] || [];
-                    const todayEntry = habitEntries.find((e) => e.date === today);
-                    const habitRaceData = raceData[habit.id];
-                    const streak = streaks[habit.id] || 0;
-
-                    // Calculate race info text for boolean habits
-                    let raceInfoText = '';
-                    if (habit.type === 'boolean' && habitRaceData) {
-                      const prStreak = habitRaceData.previousRecord?.value || 0;
-                      const daysToGo = prStreak - streak;
-                      if (daysToGo > 0) {
-                        raceInfoText = `Nog ${daysToGo} dag${daysToGo !== 1 ? 'en' : ''} tot je PR`;
-                      } else if (streak > 0) {
-                        raceInfoText = '🏆 Nieuw persoonlijk record!';
-                      }
-                    }
-
-                    return (
-                      <motion.div
-                        key={habit.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl border border-white/10 overflow-hidden"
-                      >
-                        {/* Habit Card Header */}
-                        <div className="p-4">
-                          <HabitCard
-                            habit={habit}
-                            raceData={habitRaceData}
-                            todayEntry={todayEntry}
-                            currentStreak={streak}
-                            onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
-                            onViewDetails={() => handleViewDetails(habit)}
-                          />
-                        </div>
-
-                        {/* Race Progress Bar */}
-                        {habitRaceData && habitRaceData.totalPositions > 0 && (
-                          <div
-                            className="px-4 pb-4 cursor-pointer"
-                            onClick={() => navigate(`/habit/${habit.id}`)}
-                          >
-                            {/* Mini race visualization */}
-                            <div className="flex gap-1 mb-2">
-                              {habitRaceData.positions.slice(0, 15).map((pos, index) => {
-                                const isAhead = pos.position < habitRaceData.currentPosition;
-                                const isCurrent = pos.isCurrent || pos.position === habitRaceData.currentPosition;
-                                const isPR = pos.isPersonalRecord;
-
-                                let bgColor = 'bg-green-500';
-                                if (isAhead) bgColor = 'bg-red-500';
-                                else if (isCurrent) bgColor = 'bg-yellow-400';
-
-                                return (
-                                  <motion.div
-                                    key={pos.position}
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: index * 0.02 }}
-                                    className={`w-4 h-4 rounded ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrent ? 'animate-pulse' : ''}`}
-                                  />
-                                );
-                              })}
-                              {habitRaceData.totalPositions > 15 && (
-                                <span className="text-xs text-white/40 self-center ml-1">
-                                  +{habitRaceData.totalPositions - 15}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Position text */}
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">
-                                Positie <span className="text-white font-bold">{habitRaceData.currentPosition}</span> van {habitRaceData.totalPositions}
-                              </span>
-                              {raceInfoText && (
-                                <span className="text-vapor-cyan">{raceInfoText}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            </section>
+                  return (
+                    <RaceTile
+                      key={habit.id}
+                      habit={habit}
+                      raceData={habitRaceData}
+                      todayEntry={todayEntry}
+                      currentStreak={streak}
+                      activeTimer={timer}
+                      previousBest={bestValues[habit.id]}
+                      previousEntry={previousEntries[habit.id]}
+                      onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
+                      onStartTimer={() => handleStartTimer(habit.id)}
+                      onPauseTimer={() => handlePauseTimer(habit.id)}
+                      onResumeTimer={() => handleResumeTimer(habit.id)}
+                      onSaveTimer={(elapsedMs) => handleSaveTimer(habit.id, elapsedMs)}
+                      onDeleteTimer={() => handleDeleteTimer(habit.id)}
+                      onClick={() => handleViewDetails(habit)}
+                    />
+                  );
+                })}
+              </AnimatePresence>
+            </div>
           </>
         )}
       </main>
@@ -426,9 +323,9 @@ export function Dashboard() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => dispatch(setShowAddHabitModal(true))}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-vapor-pink to-vapor-cyan rounded-full flex items-center justify-center shadow-neon-pink z-40 safe-area-bottom"
+        className="fixed bottom-6 right-6 w-12 h-12 bg-gradient-to-r from-vapor-pink to-vapor-cyan rounded-full flex items-center justify-center shadow-neon-pink z-40 safe-area-bottom"
       >
-        <Plus className="w-6 h-6 text-white" />
+        <Plus className="w-5 h-5 text-white" />
       </motion.button>
 
       {/* Modals */}

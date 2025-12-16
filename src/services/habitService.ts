@@ -253,123 +253,95 @@ export async function calculateRaceData(habitId: string): Promise<RaceData> {
   }
 
   const entries = await getEntriesForHabit(habitId);
-  const today = getTodayDate();
 
-  // Get current value (today's entry or current streak for boolean habits)
+  // For quantifiable habits: show all entries as race positions (each entry is a "race")
+  // For boolean habits: use streak-based racing
   let currentValue = 0;
+  let positions: RacePosition[] = [];
 
   if (habit.type === 'boolean') {
+    // Boolean: race against streaks
     currentValue = await getCurrentStreak(habitId);
-  } else {
-    const todayEntry = entries.find(e => e.date === today);
-    currentValue = todayEntry?.value || 0;
-  }
 
-  // Select race competitors
-  // 75% best performances, 25% recent performances
-  const sortedByValue = [...entries]
-    .sort((a, b) => {
+    // Get unique streak lengths from historical data
+    const streakValues = new Set<number>();
+    let tempStreak = 0;
+    const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+
+    for (let i = 0; i < sortedEntries.length; i++) {
+      if (sortedEntries[i].value === 1) {
+        tempStreak++;
+        streakValues.add(tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+    }
+
+    // Convert to positions
+    const streakArray = Array.from(streakValues).sort((a, b) => b - a).slice(0, 10);
+    positions = streakArray.map((value, index) => ({
+      value,
+      date: '',
+      isPersonalRecord: index === 0,
+      isCurrent: value === currentValue,
+      position: index + 1,
+    }));
+
+  } else {
+    // Quantifiable: each entry is a separate race position
+    // Sort entries by value (best first for maximize, worst first for minimize)
+    const sortedByValue = [...entries].sort((a, b) => {
       if (habit.direction === 'maximize') {
         return b.value - a.value;
       }
       return a.value - b.value;
     });
 
-  const sortedByDate = [...entries]
-    .sort((a, b) => b.date.localeCompare(a.date));
+    // Get most recent entry as "current"
+    const sortedByDate = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+    const mostRecentEntry = sortedByDate[0];
+    currentValue = mostRecentEntry?.value || 0;
 
-  // Get top 75% best performers (max 7-8 positions)
-  const bestCount = Math.min(8, Math.ceil(entries.length * 0.75));
-  const bestPerformers = sortedByValue.slice(0, bestCount);
+    // Use all entries as race positions (max 15 for display)
+    const raceEntries = sortedByValue.slice(0, 15);
+    const personalRecord = sortedByValue[0];
 
-  // Get recent 25% (max 2-3 positions)
-  const recentCount = Math.min(3, Math.ceil(entries.length * 0.25));
-  const recentPerformers = sortedByDate
-    .filter(e => !bestPerformers.some(b => b.id === e.id))
-    .slice(0, recentCount);
+    positions = raceEntries.map((entry, index) => ({
+      value: entry.value,
+      date: entry.date,
+      isPersonalRecord: entry.id === personalRecord?.id,
+      isCurrent: mostRecentEntry ? entry.id === mostRecentEntry.id : false,
+      position: index + 1,
+    }));
+  }
 
-  // Combine and deduplicate by value (keep unique performance levels)
-  const allCompetitors = [...bestPerformers, ...recentPerformers];
-  const uniqueValues = new Map<number, HabitEntry>();
-
-  allCompetitors.forEach(entry => {
-    if (!uniqueValues.has(entry.value) || entry.date > uniqueValues.get(entry.value)!.date) {
-      uniqueValues.set(entry.value, entry);
-    }
-  });
-
-  // Sort by value for race positioning
-  let raceEntries = Array.from(uniqueValues.values())
-    .sort((a, b) => {
+  // Find current position
+  let currentPosition = 0;
+  const currentInRace = positions.find(p => p.isCurrent);
+  if (currentInRace) {
+    currentPosition = currentInRace.position;
+  } else if (positions.length > 0) {
+    // Find where current value would rank
+    for (let i = 0; i < positions.length; i++) {
       if (habit.direction === 'maximize') {
-        return b.value - a.value;
+        if (currentValue >= positions[i].value) {
+          currentPosition = positions[i].position;
+          break;
+        }
+      } else {
+        if (currentValue <= positions[i].value) {
+          currentPosition = positions[i].position;
+          break;
+        }
       }
-      return a.value - b.value;
-    })
-    .slice(0, 10); // Max 10 positions
+    }
+    if (currentPosition === 0) {
+      currentPosition = positions.length + 1;
+    }
+  }
 
   // Find personal record
-  const personalRecord = sortedByValue[0];
-
-  // Create race positions
-  const positions: RacePosition[] = raceEntries.map((entry, index) => ({
-    value: entry.value,
-    date: entry.date,
-    isPersonalRecord: entry.id === personalRecord?.id,
-    isCurrent: false,
-    position: index + 1,
-  }));
-
-  // Find current position in the race
-  let currentPosition = positions.length + 1; // Default: last place
-
-  for (let i = 0; i < positions.length; i++) {
-    const pos = positions[i];
-    if (habit.direction === 'maximize') {
-      if (currentValue >= pos.value) {
-        currentPosition = pos.position;
-        break;
-      }
-    } else {
-      if (currentValue <= pos.value) {
-        currentPosition = pos.position;
-        break;
-      }
-    }
-  }
-
-  // Add current position to race if not already there
-  const currentInRace = positions.find(p => p.value === currentValue);
-  if (!currentInRace && currentValue > 0) {
-    // Insert current position
-    const newPos: RacePosition = {
-      value: currentValue,
-      date: today,
-      isPersonalRecord: false,
-      isCurrent: true,
-      position: currentPosition,
-    };
-
-    // Recalculate positions
-    positions.push(newPos);
-    positions.sort((a, b) => {
-      if (habit.direction === 'maximize') {
-        return b.value - a.value;
-      }
-      return a.value - b.value;
-    });
-
-    positions.forEach((p, i) => {
-      p.position = i + 1;
-      if (p.value === currentValue && p.date === today) {
-        p.isCurrent = true;
-        currentPosition = p.position;
-      }
-    });
-  } else if (currentInRace) {
-    currentInRace.isCurrent = true;
-    currentPosition = currentInRace.position;
-  }
+  const personalRecord = positions.find(p => p.isPersonalRecord);
 
   // Calculate next target
   let nextTarget: RaceData['nextTarget'] | undefined;
