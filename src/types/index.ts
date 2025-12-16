@@ -39,6 +39,7 @@ export interface HabitEntry {
   notes?: string;
   createdAt: number;
   updatedAt: number;
+  isAttempt?: boolean; // True for timer-based entries that allow multiple per day
 }
 
 // Streak Types

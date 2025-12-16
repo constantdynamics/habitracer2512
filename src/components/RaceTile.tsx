@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, Square, Trash2, Check } from 'lucide-react';
 import { ActiveTimer, Habit, RaceData, HabitEntry } from '../types';
@@ -53,12 +53,92 @@ export function RaceTile({
 
     const interval = setInterval(() => {
       setElapsedMs(getElapsedMs(activeTimer));
-    }, 100); // Update every 100ms for performance
+    }, 100);
 
     return () => clearInterval(interval);
   }, [activeTimer]);
 
   const formatted = activeTimer ? formatElapsedTime(elapsedMs) : null;
+
+  // Convert elapsed ms to minutes for comparison
+  const currentMinutes = elapsedMs / 1000 / 60;
+
+  // Calculate LIVE race position based on current timer value
+  const liveRaceData = useMemo(() => {
+    if (!raceData || !isDuration || !activeTimer) {
+      return {
+        positions: raceData?.positions || [],
+        currentPosition: raceData?.currentPosition || 0,
+        totalPositions: raceData?.totalPositions || 0,
+        nextTarget: raceData?.nextTarget,
+        distanceToNext: null as number | null,
+        distanceToBest: null as number | null,
+      };
+    }
+
+    const positions = raceData.positions || [];
+    if (positions.length === 0) {
+      return {
+        positions: [],
+        currentPosition: 1,
+        totalPositions: 1,
+        nextTarget: undefined,
+        distanceToNext: null,
+        distanceToBest: null,
+      };
+    }
+
+    // Find where current timer value would rank
+    let livePosition = positions.length + 1; // Start at last position
+    for (let i = 0; i < positions.length; i++) {
+      const posValue = positions[i].value;
+      if (habit.direction === 'maximize') {
+        if (currentMinutes >= posValue) {
+          livePosition = i + 1;
+          break;
+        }
+      } else {
+        if (currentMinutes <= posValue) {
+          livePosition = i + 1;
+          break;
+        }
+      }
+    }
+
+    // Calculate distance to next position (the one we're trying to beat)
+    let distanceToNext: number | null = null;
+    let nextTarget = raceData.nextTarget;
+
+    if (livePosition > 1) {
+      const nextPos = positions[livePosition - 2]; // -2 because: -1 for 0-index, -1 for next position
+      if (nextPos) {
+        const nextValueMs = nextPos.value * 60 * 1000;
+        distanceToNext = nextValueMs - elapsedMs;
+        nextTarget = {
+          value: nextPos.value,
+          position: livePosition - 1,
+          estimatedDate: undefined,
+        };
+      }
+    }
+
+    // Calculate distance to best (PR)
+    let distanceToBest: number | null = null;
+    if (positions.length > 0) {
+      const bestValue = positions[0].value;
+      const bestValueMs = bestValue * 60 * 1000;
+      distanceToBest = bestValueMs - elapsedMs;
+    }
+
+    return {
+      positions,
+      currentPosition: Math.min(livePosition, positions.length + 1),
+      totalPositions: positions.length + 1, // +1 for current attempt
+      nextTarget,
+      distanceToNext,
+      distanceToBest,
+    };
+  }, [raceData, isDuration, activeTimer, currentMinutes, elapsedMs, habit.direction]);
 
   // Calculate comparisons for duration habits
   const getComparisons = () => {
@@ -67,8 +147,10 @@ export function RaceTile({
     const prevMs = previousEntry ? previousEntry.value * 60 * 1000 : 0;
     const bestMs = previousBest ? previousBest * 60 * 1000 : 0;
 
+    const showPrevious = prevMs > 0 && prevMs !== bestMs;
+
     return {
-      vs_previous: prevMs > 0 ? {
+      vs_previous: showPrevious ? {
         diff: elapsedMs - prevMs,
         isAhead: habit.direction === 'maximize' ? elapsedMs > prevMs : elapsedMs < prevMs,
       } : null,
@@ -81,10 +163,10 @@ export function RaceTile({
 
   const comparisons = getComparisons();
 
-  // Race visualization
-  const positions = raceData?.positions || [];
-  const currentPosition = raceData?.currentPosition || 0;
-  const totalPositions = raceData?.totalPositions || 0;
+  // Use live race data when timer is active, otherwise use stored race data
+  const displayPositions = activeTimer && isDuration ? liveRaceData.positions : (raceData?.positions || []);
+  const displayCurrentPosition = activeTimer && isDuration ? liveRaceData.currentPosition : (raceData?.currentPosition || 0);
+  const displayTotalPositions = activeTimer && isDuration ? liveRaceData.totalPositions : (raceData?.totalPositions || 0);
 
   // Calculate race info text
   let raceInfoText = '';
@@ -97,6 +179,17 @@ export function RaceTile({
       raceInfoText = 'PR!';
     }
   }
+
+  // Progress bar calculation for timer habits
+  const progressToNext = useMemo(() => {
+    if (!activeTimer || !isDuration || !liveRaceData.nextTarget) return null;
+
+    const targetMs = liveRaceData.nextTarget.value * 60 * 1000;
+    if (targetMs <= 0) return null;
+
+    const progress = Math.min((elapsedMs / targetMs) * 100, 100);
+    return progress;
+  }, [activeTimer, isDuration, liveRaceData.nextTarget, elapsedMs]);
 
   // Tile border color based on state
   let borderColor = 'border-white/10';
@@ -132,8 +225,30 @@ export function RaceTile({
             {formatted.display}
             <span className="text-sm text-vapor-cyan">{formatted.centis}</span>
           </div>
-          {/* Comparisons */}
-          {(comparisons.vs_previous || comparisons.vs_best) && (
+
+          {/* Live distance indicators */}
+          {(liveRaceData.distanceToNext !== null || liveRaceData.distanceToBest !== null) && (
+            <div className="flex justify-center gap-3 text-[10px] mt-1">
+              {liveRaceData.distanceToNext !== null && liveRaceData.distanceToNext > 0 && (
+                <span className="text-yellow-400">
+                  #{displayCurrentPosition - 1}: {formatElapsedTime(liveRaceData.distanceToNext).display}
+                </span>
+              )}
+              {liveRaceData.distanceToBest !== null && liveRaceData.distanceToBest > 0 && (
+                <span className="text-vapor-gold">
+                  PR: {formatElapsedTime(liveRaceData.distanceToBest).display}
+                </span>
+              )}
+              {liveRaceData.distanceToBest !== null && liveRaceData.distanceToBest <= 0 && (
+                <span className="text-green-400 font-bold animate-pulse">
+                  🏆 NIEUW PR!
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Fallback to old comparisons if no live data */}
+          {liveRaceData.distanceToNext === null && liveRaceData.distanceToBest === null && (comparisons.vs_previous || comparisons.vs_best) && (
             <div className="flex justify-center gap-3 text-[10px] mt-1">
               {comparisons.vs_previous && (
                 <span className={comparisons.vs_previous.isAhead ? 'text-green-400' : 'text-red-400'}>
@@ -149,36 +264,82 @@ export function RaceTile({
               )}
             </div>
           )}
+
+          {/* Progress bar to next position */}
+          {progressToNext !== null && displayCurrentPosition > 1 && (
+            <div className="mt-2 px-1">
+              <div className="h-1.5 bg-vapor-darker rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-vapor-pink to-vapor-cyan"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressToNext}%` }}
+                  transition={{ duration: 0.1 }}
+                />
+              </div>
+              <div className="text-[9px] text-white/40 mt-0.5 text-center">
+                {progressToNext.toFixed(0)}% naar #{displayCurrentPosition - 1}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Race visualization */}
-      {positions.length > 0 && (
+      {/* Race visualization - blocks ordered best (left) to worst (right) */}
+      {displayPositions.length > 0 && (
         <div className="flex-1 flex flex-col justify-center" onClick={onClick}>
-          <div className="flex flex-wrap gap-0.5 mb-1">
-            {positions.slice(0, 10).map((pos, index) => {
-              const isAhead = pos.position < currentPosition;
-              const isCurrent = pos.isCurrent || pos.position === currentPosition;
+          <div className="flex flex-wrap gap-1 mb-1">
+            {displayPositions.slice(0, 10).map((pos, index) => {
+              // During active timer: calculate live position
+              // Green = verslagen (huidige positie is beter dan dit blokje)
+              // Red = nog voor ons (dit blokje is beter dan huidige positie)
+              // Yellow = huidige positie
+              const positionNumber = index + 1;
               const isPR = pos.isPersonalRecord;
 
-              let bgColor = 'bg-green-500';
-              if (isAhead) bgColor = 'bg-red-500';
-              else if (isCurrent) bgColor = 'bg-yellow-400';
+              // When timer is active, use live position
+              const isCurrentPosition = activeTimer && isDuration
+                ? positionNumber === displayCurrentPosition
+                : pos.isCurrent;
+
+              const isAheadOfUs = activeTimer && isDuration
+                ? positionNumber < displayCurrentPosition
+                : positionNumber < displayCurrentPosition;
+
+              let bgColor = 'bg-green-500'; // Verslagen
+              if (isCurrentPosition) {
+                bgColor = 'bg-yellow-400';
+              } else if (isAheadOfUs) {
+                bgColor = 'bg-red-500'; // Nog voor ons
+              }
 
               return (
                 <div
                   key={index}
-                  className={`w-3 h-3 rounded-sm ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrent ? 'animate-pulse' : ''}`}
+                  className={`w-5 h-5 rounded-sm ${bgColor} ${isPR ? 'ring-1 ring-vapor-gold' : ''} ${isCurrentPosition ? 'ring-2 ring-white animate-pulse' : ''}`}
+                  title={`#${positionNumber}: ${pos.value.toFixed(1)} min`}
                 />
               );
             })}
-            {totalPositions > 10 && (
-              <span className="text-[10px] text-white/40 self-center">+{totalPositions - 10}</span>
+            {/* Show current attempt as separate block when timer active */}
+            {activeTimer && isDuration && displayCurrentPosition > displayPositions.length && (
+              <div
+                className="w-5 h-5 rounded-sm bg-yellow-400 ring-2 ring-white animate-pulse"
+                title={`Huidige: ${currentMinutes.toFixed(1)} min`}
+              />
+            )}
+            {displayTotalPositions > 10 && (
+              <span className="text-[10px] text-white/40 self-center">+{displayTotalPositions - 10}</span>
             )}
           </div>
           <div className="text-[10px] text-white/50">
-            {totalPositions > 0 ? (
-              <>#{currentPosition}/{totalPositions} {raceInfoText && <span className="text-vapor-cyan">{raceInfoText}</span>}</>
+            {displayTotalPositions > 0 ? (
+              <>
+                #{displayCurrentPosition}/{displayTotalPositions}
+                {raceInfoText && <span className="text-vapor-cyan ml-1">{raceInfoText}</span>}
+                {activeTimer && isDuration && displayCurrentPosition === 1 && (
+                  <span className="text-green-400 ml-1">🏆 Leidt!</span>
+                )}
+              </>
             ) : (
               'Start je eerste poging'
             )}
@@ -186,8 +347,20 @@ export function RaceTile({
         </div>
       )}
 
+      {/* No race data yet - but show placeholder blocks during timer */}
+      {displayPositions.length === 0 && activeTimer && isDuration && (
+        <div className="flex-1 flex flex-col justify-center" onClick={onClick}>
+          <div className="flex gap-1 mb-1">
+            <div className="w-5 h-5 rounded-sm bg-yellow-400 ring-2 ring-white animate-pulse" />
+          </div>
+          <div className="text-[10px] text-white/50">
+            #1/1 - Eerste poging!
+          </div>
+        </div>
+      )}
+
       {/* No race data yet */}
-      {positions.length === 0 && !activeTimer && (
+      {displayPositions.length === 0 && !activeTimer && (
         <div className="flex-1 flex items-center justify-center text-[10px] text-white/30" onClick={onClick}>
           Nog geen data
         </div>
@@ -196,7 +369,6 @@ export function RaceTile({
       {/* Action buttons */}
       <div className="flex gap-1 mt-2">
         {isBoolean ? (
-          // Boolean habit: simple check button
           <button
             onClick={(e) => { e.stopPropagation(); onQuickCheckIn(); }}
             className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
@@ -209,7 +381,6 @@ export function RaceTile({
             {isCompleted ? 'Gedaan' : 'Check'}
           </button>
         ) : isDuration ? (
-          // Duration habit: timer controls
           activeTimer ? (
             <>
               {activeTimer.isRunning ? (
@@ -267,7 +438,6 @@ export function RaceTile({
             </button>
           )
         ) : (
-          // Other quantifiable: just a click to open detail
           <button
             onClick={(e) => { e.stopPropagation(); onClick(); }}
             className="flex-1 py-2 bg-vapor-darker/50 rounded-lg text-white/60 text-xs font-medium"

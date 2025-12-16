@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Calendar, TrendingUp, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Trash2, BarChart3 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadRaceData, loadStats, loadEntriesForHabit, deleteHabit, quickCheckIn, checkInWithValue, deleteEntry } from '../store/habitsSlice';
 import { RaceVisualization } from '../components/RaceVisualization';
 import { Trophy } from '../components/Trophy';
 import { CheckInModal } from '../components/CheckInModal';
+import { StatsCard } from '../components/StatsCard';
 import { getHabit, getCurrentStreak } from '../services/habitService';
 import { getTodayDate, formatDate } from '../db';
 import { Habit } from '../types';
@@ -189,88 +190,41 @@ export function HabitDetail() {
           {todayEntry?.value && <span className="text-2xl">🎉</span>}
         </motion.button>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">🔥</span>
-              <span className="text-sm text-white/60">Huidige streak</span>
-            </div>
-            <div className="text-3xl font-bold text-white">{currentStreak}</div>
-            <div className="text-xs text-white/40">dagen</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Trophy streakDays={currentStreak} size="sm" />
-              <span className="text-sm text-white/60">Trofee</span>
-            </div>
-            <Trophy streakDays={currentStreak} showLabel size="md" />
-          </motion.div>
-        </div>
-
-        {/* Extended Stats */}
+        {/* Statistics Section */}
         {habitStats && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
-          >
-            <h2 className="text-sm font-medium text-white/60 mb-4">Statistieken</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-xs text-white/40">Beste</div>
-                <div className="text-lg font-semibold text-vapor-gold">
-                  {habitStats.bestValue} {habit.unit}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40">Gemiddeld</div>
-                <div className="text-lg font-semibold text-vapor-cyan">
-                  {habitStats.averageValue.toFixed(1)} {habit.unit}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40">Totaal</div>
-                <div className="text-lg font-semibold text-white">
-                  {habitStats.totalEntries} dagen
-                </div>
-              </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <BarChart3 className="w-4 h-4 text-white/40" />
+              <h2 className="text-sm font-medium text-white/60">Statistieken</h2>
             </div>
-
-            <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className={`w-4 h-4 ${
-                  habitStats.trend === 'improving' ? 'text-green-400' :
-                  habitStats.trend === 'declining' ? 'text-red-400' : 'text-white/40'
-                }`} />
-                <span className="text-sm text-white/60">
-                  {habitStats.trend === 'improving' ? 'Verbetert' :
-                   habitStats.trend === 'declining' ? 'Daalt' : 'Stabiel'}
-                </span>
-              </div>
-              {habitStats.trendPercentage > 0 && (
-                <span className={`text-sm ${
-                  habitStats.trend === 'improving' ? 'text-green-400' :
-                  habitStats.trend === 'declining' ? 'text-red-400' : 'text-white/40'
-                }`}>
-                  {habitStats.trendPercentage.toFixed(1)}%
-                </span>
-              )}
-            </div>
-          </motion.div>
+            <StatsCard
+              habit={habit}
+              stats={habitStats}
+              entries={habitEntries}
+              currentStreak={currentStreak}
+            />
+          </div>
         )}
+
+        {/* Trophy Display */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-gradient-to-br from-vapor-dark/80 to-vapor-darker/80 rounded-xl p-4 border border-white/10"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy streakDays={currentStreak} size="lg" />
+              <div>
+                <Trophy streakDays={currentStreak} showLabel size="md" />
+                <div className="text-xs text-white/40 mt-1">
+                  {currentStreak} dagen streak
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Calendar */}
         <motion.div

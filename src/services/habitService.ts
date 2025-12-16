@@ -66,8 +66,26 @@ export async function getActiveHabits(): Promise<Habit[]> {
 
 // ENTRY OPERATIONS
 
-export async function createEntry(habitId: string, date: string, value: number, notes?: string): Promise<HabitEntry> {
+export async function createEntry(habitId: string, date: string, value: number, notes?: string, isAttempt?: boolean): Promise<HabitEntry> {
   const now = Date.now();
+
+  // For attempt-based entries (timer habits), always create a new entry
+  if (isAttempt) {
+    const entry: HabitEntry = {
+      id: generateId(),
+      habitId,
+      date,
+      value,
+      notes,
+      createdAt: now,
+      updatedAt: now,
+      isAttempt: true,
+    };
+
+    await db.entries.add(entry);
+    await updateStreaks(habitId);
+    return entry;
+  }
 
   // Check if entry already exists for this habit and date
   const existing = await db.entries
@@ -75,7 +93,8 @@ export async function createEntry(habitId: string, date: string, value: number, 
     .equals([habitId, date])
     .first();
 
-  if (existing) {
+  // Only update if existing entry is not an attempt
+  if (existing && !existing.isAttempt) {
     // Update existing entry
     await db.entries.update(existing.id, {
       value,
@@ -297,13 +316,35 @@ export async function calculateRaceData(habitId: string): Promise<RaceData> {
       return a.value - b.value;
     });
 
-    // Get most recent entry as "current"
-    const sortedByDate = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+    // Sort by createdAt for most recent
+    const sortedByDate = [...entries].sort((a, b) => b.createdAt - a.createdAt);
     const mostRecentEntry = sortedByDate[0];
     currentValue = mostRecentEntry?.value || 0;
 
-    // Use all entries as race positions (max 15 for display)
-    const raceEntries = sortedByValue.slice(0, 15);
+    // 75% beste entries + 25% meest recente entries (for interesting race mix)
+    const totalSlots = Math.min(entries.length, 10);
+    const bestSlots = Math.ceil(totalSlots * 0.75);
+    const recentSlots = totalSlots - bestSlots;
+
+    const bestEntries = sortedByValue.slice(0, bestSlots);
+    const recentEntries = sortedByDate
+      .filter(e => !bestEntries.some(b => b.id === e.id))
+      .slice(0, recentSlots);
+
+    // Combine and remove duplicates
+    const combinedEntries = [...bestEntries, ...recentEntries];
+    const uniqueEntries = combinedEntries.filter((entry, index, self) =>
+      index === self.findIndex(e => e.id === entry.id)
+    );
+
+    // Re-sort combined entries by value for proper positioning
+    const raceEntries = uniqueEntries.sort((a, b) => {
+      if (habit.direction === 'maximize') {
+        return b.value - a.value;
+      }
+      return a.value - b.value;
+    });
+
     const personalRecord = sortedByValue[0];
 
     positions = raceEntries.map((entry, index) => ({
@@ -542,6 +583,6 @@ export async function quickCheckIn(habitId: string): Promise<HabitEntry> {
 }
 
 // Check-in with value for quantifiable habits
-export async function checkInWithValue(habitId: string, value: number, notes?: string, date?: string): Promise<HabitEntry> {
-  return createEntry(habitId, date || getTodayDate(), value, notes);
+export async function checkInWithValue(habitId: string, value: number, notes?: string, date?: string, isAttempt?: boolean): Promise<HabitEntry> {
+  return createEntry(habitId, date || getTodayDate(), value, notes, isAttempt);
 }

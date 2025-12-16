@@ -57,8 +57,14 @@ export function Dashboard() {
         habits.map(async (h) => {
           const streak = await getCurrentStreak(h.id);
           const allEntries = await getEntriesForHabit(h.id);
-          const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
-          const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
+          // Sort by createdAt to handle multiple entries per day correctly
+          const sortedEntries = [...allEntries].sort((a, b) => b.createdAt - a.createdAt);
+          // Best value depends on habit direction
+          const best = allEntries.length > 0
+            ? (h.direction === 'maximize'
+                ? Math.max(...allEntries.map(e => e.value))
+                : Math.min(...allEntries.map(e => e.value)))
+            : 0;
           const previous = sortedEntries.length > 0 ? sortedEntries[0] : null;
           return { id: h.id, streak, best, previous };
         })
@@ -180,7 +186,8 @@ export function Dashboard() {
 
     // Stop timer WITHOUT auto-restart
     await dispatch(stopAndSaveTimer({ habitId, autoRestart: false }));
-    await dispatch(checkInWithValue({ habitId, value: minutes }));
+    // isAttempt: true allows multiple entries per day for timer-based habits
+    await dispatch(checkInWithValue({ habitId, value: minutes, isAttempt: true }));
     await dispatch(loadRaceData(habitId));
     await dispatch(loadEntriesForHabit(habitId));
 

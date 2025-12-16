@@ -71,8 +71,8 @@ export const quickCheckIn = createAsyncThunk('habits/quickCheckIn', async (habit
 
 export const checkInWithValue = createAsyncThunk(
   'habits/checkInWithValue',
-  async ({ habitId, value, notes, date }: { habitId: string; value: number; notes?: string; date?: string }) => {
-    const entry = await habitService.checkInWithValue(habitId, value, notes, date);
+  async ({ habitId, value, notes, date, isAttempt }: { habitId: string; value: number; notes?: string; date?: string; isAttempt?: boolean }) => {
+    const entry = await habitService.checkInWithValue(habitId, value, notes, date, isAttempt);
     return { habitId, entry };
   }
 );
@@ -195,14 +195,19 @@ const habitsSlice = createSlice({
           state.entries[habitId] = [];
         }
 
-        const existingIndex = state.entries[habitId].findIndex(
-          (e) => e.date === entry.date
-        );
-
-        if (existingIndex !== -1) {
-          state.entries[habitId][existingIndex] = entry;
-        } else {
+        // For attempt entries, always add a new entry
+        if (entry.isAttempt) {
           state.entries[habitId].push(entry);
+        } else {
+          const existingIndex = state.entries[habitId].findIndex(
+            (e) => e.date === entry.date && !e.isAttempt
+          );
+
+          if (existingIndex !== -1) {
+            state.entries[habitId][existingIndex] = entry;
+          } else {
+            state.entries[habitId].push(entry);
+          }
         }
       })
 
