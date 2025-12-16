@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { db } from '../db';
-import { AppSettings, OnboardingState } from '../types';
+import { AppSettings, OnboardingState, SortOption } from '../types';
 
 interface UIState {
   onboarding: OnboardingState;
@@ -23,6 +23,8 @@ const initialState: UIState = {
     notifications: false,
     hapticFeedback: true,
     soundEffects: true,
+    sortOrder: 'newest',
+    customOrder: [],
   },
   selectedHabitId: null,
   isLoading: true,
@@ -94,6 +96,12 @@ const uiSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+    setSortOrder: (state, action: PayloadAction<SortOption>) => {
+      state.settings.sortOrder = action.payload;
+    },
+    setCustomOrder: (state, action: PayloadAction<string[]>) => {
+      state.settings.customOrder = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -136,6 +144,8 @@ export const {
   triggerCelebration,
   dismissCelebration,
   setLoading,
+  setSortOrder,
+  setCustomOrder,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

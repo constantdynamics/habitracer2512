@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, ChevronDown } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadHabits,
@@ -19,28 +19,36 @@ import {
   stopAndSaveTimer,
   deleteTimer,
 } from '../store/timersSlice';
-import { setShowAddHabitModal, triggerCelebration, dismissCelebration } from '../store/uiSlice';
+import { setShowAddHabitModal, triggerCelebration, dismissCelebration, setSortOrder, updateSettings } from '../store/uiSlice';
 import { AddHabitModal } from '../components/AddHabitModal';
 import { CheckInModal } from '../components/CheckInModal';
 import { Celebration } from '../components/Celebration';
 import { RaceTile } from '../components/RaceTile';
 import { getTodayDate } from '../db';
-import { Habit, PresetHabit } from '../types';
-import { getCurrentStreak, getEntriesForHabit } from '../services/habitService';
+import { Habit, PresetHabit, SortOption } from '../types';
+import { getCurrentStreak } from '../services/habitService';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Nieuwste eerst' },
+  { value: 'oldest', label: 'Oudste eerst' },
+  { value: 'name', label: 'Naam A-Z' },
+  { value: 'streak', label: 'Streak' },
+  { value: 'mostActive', label: 'Meest actief' },
+  { value: 'custom', label: 'Aangepast' },
+];
 
 export function Dashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { habits, raceData, entries } = useAppSelector((state) => state.habits);
   const { activeTimers } = useAppSelector((state) => state.timers);
-  const { showAddHabitModal, showCelebration, celebrationMessage } = useAppSelector(
+  const { showAddHabitModal, showCelebration, celebrationMessage, settings } = useAppSelector(
     (state) => state.ui
   );
 
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [checkInHabit, setCheckInHabit] = useState<Habit | null>(null);
-  const [bestValues, setBestValues] = useState<Record<string, number>>({});
-  const [previousEntries, setPreviousEntries] = useState<Record<string, { value: number; date: string }>>({});
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   // Load habits and active timers on mount
   useEffect(() => {
@@ -48,40 +56,22 @@ export function Dashboard() {
     dispatch(loadActiveTimers());
   }, [dispatch]);
 
-  // Load race data, streaks, and best values when habits change
+  // Load race data and streaks when habits change
   useEffect(() => {
     if (habits.length > 0) {
       dispatch(loadAllRaceData());
-      // Load streaks, best values, and previous entries
+      // Load streaks
       Promise.all(
         habits.map(async (h) => {
           const streak = await getCurrentStreak(h.id);
-          const allEntries = await getEntriesForHabit(h.id);
-          // Sort by createdAt to handle multiple entries per day correctly
-          const sortedEntries = [...allEntries].sort((a, b) => b.createdAt - a.createdAt);
-          // Best value depends on habit direction
-          const best = allEntries.length > 0
-            ? (h.direction === 'maximize'
-                ? Math.max(...allEntries.map(e => e.value))
-                : Math.min(...allEntries.map(e => e.value)))
-            : 0;
-          const previous = sortedEntries.length > 0 ? sortedEntries[0] : null;
-          return { id: h.id, streak, best, previous };
+          return { id: h.id, streak };
         })
       ).then((results) => {
         const streakMap: Record<string, number> = {};
-        const bestMap: Record<string, number> = {};
-        const prevMap: Record<string, { value: number; date: string }> = {};
         results.forEach((r) => {
           streakMap[r.id] = r.streak;
-          bestMap[r.id] = r.best;
-          if (r.previous) {
-            prevMap[r.id] = { value: r.previous.value, date: r.previous.date };
-          }
         });
         setStreaks(streakMap);
-        setBestValues(bestMap);
-        setPreviousEntries(prevMap);
       });
     }
   }, [habits, dispatch]);
@@ -129,18 +119,6 @@ export function Dashboard() {
     // Update streaks
     const newStreak = await getCurrentStreak(checkInHabit.id);
     setStreaks((prev) => ({ ...prev, [checkInHabit.id]: newStreak }));
-
-    // Reload entries to update best/previous
-    const allEntries = await getEntriesForHabit(checkInHabit.id);
-    const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
-    const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
-    setBestValues((prev) => ({ ...prev, [checkInHabit.id]: best }));
-    if (sortedEntries.length > 0) {
-      setPreviousEntries((prev) => ({
-        ...prev,
-        [checkInHabit.id]: { value: sortedEntries[0].value, date: sortedEntries[0].date }
-      }));
-    }
 
     // Celebration for goal reached
     if (checkInHabit.goalValue && value >= checkInHabit.goalValue) {
@@ -191,20 +169,9 @@ export function Dashboard() {
     await dispatch(loadRaceData(habitId));
     await dispatch(loadEntriesForHabit(habitId));
 
-    // Update streaks and best values
+    // Update streaks
     const newStreak = await getCurrentStreak(habitId);
     setStreaks((prev) => ({ ...prev, [habitId]: newStreak }));
-
-    const allEntries = await getEntriesForHabit(habitId);
-    const sortedEntries = [...allEntries].sort((a, b) => b.date.localeCompare(a.date));
-    const best = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.value)) : 0;
-    setBestValues((prev) => ({ ...prev, [habitId]: best }));
-    if (sortedEntries.length > 0) {
-      setPreviousEntries((prev) => ({
-        ...prev,
-        [habitId]: { value: sortedEntries[0].value, date: sortedEntries[0].date }
-      }));
-    }
 
     dispatch(triggerCelebration(`${minutes} minuten opgeslagen!`));
   };
@@ -217,6 +184,50 @@ export function Dashboard() {
 
   // Count active timers for header
   const activeTimerCount = activeTimers.filter(t => t.isRunning).length;
+
+  // Sort habits based on selected sort option
+  const sortedHabits = useMemo(() => {
+    const sorted = [...habits];
+    const sortOrder = settings?.sortOrder || 'newest';
+
+    switch (sortOrder) {
+      case 'newest':
+        return sorted.sort((a, b) => b.createdAt - a.createdAt);
+      case 'oldest':
+        return sorted.sort((a, b) => a.createdAt - b.createdAt);
+      case 'name':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case 'streak':
+        return sorted.sort((a, b) => (streaks[b.id] || 0) - (streaks[a.id] || 0));
+      case 'mostActive':
+        return sorted.sort((a, b) => {
+          const aEntries = entries[a.id]?.length || 0;
+          const bEntries = entries[b.id]?.length || 0;
+          return bEntries - aEntries;
+        });
+      case 'custom':
+        const customOrder = settings?.customOrder || [];
+        if (customOrder.length === 0) return sorted;
+        return sorted.sort((a, b) => {
+          const aIndex = customOrder.indexOf(a.id);
+          const bIndex = customOrder.indexOf(b.id);
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+      default:
+        return sorted;
+    }
+  }, [habits, settings?.sortOrder, settings?.customOrder, streaks, entries]);
+
+  const handleSortChange = (option: SortOption) => {
+    dispatch(setSortOrder(option));
+    dispatch(updateSettings({ sortOrder: option }));
+    setShowSortMenu(false);
+  };
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.value === (settings?.sortOrder || 'newest'))?.label || 'Nieuwste eerst';
 
   return (
     <div className="min-h-screen pb-24">
@@ -273,26 +284,62 @@ export function Dashboard() {
           </motion.div>
         ) : (
           <>
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-3 text-[10px] text-white/40 mb-3">
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-red-500" /> Voor
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-yellow-400" /> Nu
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-green-500" /> Verslagen
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm ring-1 ring-vapor-gold bg-transparent" /> PR
-              </span>
+            {/* Sort dropdown and legend */}
+            <div className="flex items-center justify-between mb-4">
+              {/* Sort dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSortMenu(!showSortMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-vapor-darker/50 rounded-lg text-sm text-white/70 hover:text-white transition-colors"
+                >
+                  {currentSortLabel}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showSortMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 mt-1 bg-vapor-dark border border-white/10 rounded-lg shadow-lg z-50 min-w-[160px]"
+                    >
+                      {SORT_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleSortChange(option.value)}
+                          className={`w-full px-4 py-2.5 text-left text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                            settings?.sortOrder === option.value
+                              ? 'bg-vapor-cyan/20 text-vapor-cyan'
+                              : 'text-white/70 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-2 text-[10px] text-white/40">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-red-500" /> Voor
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-yellow-400" /> Nu
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-green-500" /> Verslagen
+                </span>
+              </div>
             </div>
 
             {/* 2-column grid of race tiles */}
             <div className="grid grid-cols-2 gap-3">
               <AnimatePresence mode="popLayout">
-                {habits.map((habit) => {
+                {sortedHabits.map((habit) => {
                   const habitEntries = entries[habit.id] || [];
                   const todayEntry = habitEntries.find((e) => e.date === today);
                   const habitRaceData = raceData[habit.id];
@@ -307,8 +354,6 @@ export function Dashboard() {
                       todayEntry={todayEntry}
                       currentStreak={streak}
                       activeTimer={timer}
-                      previousBest={bestValues[habit.id]}
-                      previousEntry={previousEntries[habit.id]}
                       onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
                       onStartTimer={() => handleStartTimer(habit.id)}
                       onPauseTimer={() => handlePauseTimer(habit.id)}

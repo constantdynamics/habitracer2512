@@ -106,6 +106,8 @@ export async function initializeSettings(): Promise<void> {
       notifications: false,
       hapticFeedback: true,
       soundEffects: true,
+      sortOrder: 'newest',
+      customOrder: [],
     });
   }
 }

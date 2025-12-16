@@ -127,12 +127,16 @@ export interface OnboardingState {
   currentStep: number;
 }
 
+export type SortOption = 'custom' | 'newest' | 'oldest' | 'name' | 'streak' | 'mostActive';
+
 export interface AppSettings {
   theme: 'dark'; // Only dark vaporwave theme for now
   notifications: boolean;
   notificationTime?: string; // HH:MM format
   hapticFeedback: boolean;
   soundEffects: boolean;
+  sortOrder: SortOption;
+  customOrder: string[]; // Array of habit IDs in custom order
 }
 
 // UI State Types
