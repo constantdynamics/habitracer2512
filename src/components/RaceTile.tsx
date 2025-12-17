@@ -181,6 +181,24 @@ function SpeedLines({ active }: { active: boolean }) {
   );
 }
 
+// Pac-Man Ghost SVG component for "you" marker
+function PacManGhost({ color, size }: { color: string; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Ghost body */}
+      <path
+        d="M12 2C7.58 2 4 5.58 4 10v8c0 0 1.5-1.5 2.5-1.5S8 18 9.5 18s2-1.5 3-1.5 1.5 1.5 3 1.5 2-1.5 2.5-1.5 2.5 1.5 2.5 1.5v-8c0-4.42-3.58-8-8-8z"
+        fill={color}
+      />
+      {/* Eyes */}
+      <circle cx="9" cy="10" r="2" fill="white" />
+      <circle cx="15" cy="10" r="2" fill="white" />
+      <circle cx="9.5" cy="10.5" r="1" fill="#1a1a2e" />
+      <circle cx="15.5" cy="10.5" r="1" fill="#1a1a2e" />
+    </svg>
+  );
+}
+
 // Circuit track with position blocks
 function CircuitTrack({
   positions,
@@ -197,7 +215,7 @@ function CircuitTrack({
 }) {
   // Show only relevant positions: 2 ahead, current, 2 behind
   const relevantPositions = useMemo(() => {
-    const result: { pos: RaceData['positions'][0] | null; index: number; isYou: boolean }[] = [];
+    const result: { pos: RaceData['positions'][0] | null; index: number; isYou: boolean; isNextTarget: boolean }[] = [];
 
     // Find positions around current
     for (let i = Math.max(0, currentPosition - 3); i < Math.min(positions.length, currentPosition + 2); i++) {
@@ -206,6 +224,7 @@ function CircuitTrack({
           pos: positions[i],
           index: i,
           isYou: i + 1 === currentPosition,
+          isNextTarget: i + 1 === currentPosition - 1, // The position we're chasing
         });
       }
     }
@@ -216,6 +235,7 @@ function CircuitTrack({
         pos: null,
         index: currentPosition - 1,
         isYou: true,
+        isNextTarget: false,
       });
       result.sort((a, b) => a.index - b.index);
     }
@@ -271,48 +291,83 @@ function CircuitTrack({
         const isPR = item.pos?.isPersonalRecord;
         const isBehind = posNumber > currentPosition;
         const isAhead = posNumber < currentPosition;
-
-        let bgColor = 'bg-green-500';
-        if (isYou) bgColor = 'bg-yellow-400';
-        else if (isAhead) bgColor = 'bg-red-500';
-        else if (isBehind) bgColor = 'bg-green-500';
+        const isNextTarget = item.isNextTarget;
 
         const style = getPositionStyle(slotIndex, relevantPositions.length);
+
+        // "You" marker - Pac-Man Ghost style
+        if (isYou) {
+          return (
+            <motion.div
+              key={`pos-${posNumber}`}
+              className="absolute z-20 flex items-center justify-center"
+              style={style}
+              animate={{
+                scale: [1, 1.15, 1],
+                y: [0, -2, 0],
+              }}
+              transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <div className="relative">
+                <PacManGhost color="#facc15" size={36} />
+                {/* Glow effect */}
+                <div
+                  className="absolute inset-0 rounded-full blur-md opacity-60"
+                  style={{ backgroundColor: '#facc15', transform: 'scale(0.8)' }}
+                />
+              </div>
+            </motion.div>
+          );
+        }
+
+        // Next target - "prey" that's about to be eaten
+        if (isNextTarget && isNearNext) {
+          return (
+            <motion.div
+              key={`pos-${posNumber}`}
+              className="absolute z-10 flex items-center justify-center"
+              style={style}
+              animate={{
+                scale: [1, 0.8, 1],
+                opacity: [1, 0.5, 1],
+              }}
+              transition={{ duration: 0.3, repeat: Infinity }}
+            >
+              <div className={`w-6 h-6 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-red-300 ${isPR ? 'ring-vapor-gold' : ''}`}>
+                <span className="text-[10px] font-bold text-white">
+                  {posNumber}
+                </span>
+              </div>
+              {/* Danger pulse ring */}
+              <motion.div
+                className="absolute w-8 h-8 rounded-full border-2 border-red-400"
+                animate={{
+                  scale: [1, 1.5],
+                  opacity: [0.8, 0],
+                }}
+                transition={{ duration: 0.8, repeat: Infinity }}
+              />
+            </motion.div>
+          );
+        }
+
+        // Regular position blocks
+        let bgColor = 'bg-green-500';
+        if (isAhead) bgColor = 'bg-red-500';
+        else if (isBehind) bgColor = 'bg-green-500';
 
         return (
           <motion.div
             key={`pos-${posNumber}`}
-            className={`absolute flex items-center justify-center shadow-lg ${bgColor} ${
-              isYou ? 'w-7 h-7 ring-2 ring-white z-10' : 'w-5 h-5'
-            } ${isPR ? 'ring-1 ring-vapor-gold' : ''} rounded`}
+            className={`absolute flex items-center justify-center shadow-lg ${bgColor} w-5 h-5 ${isPR ? 'ring-1 ring-vapor-gold' : ''} rounded`}
             style={style}
-            animate={isYou ? {
-              scale: [1, 1.1, 1],
-              boxShadow: ['0 0 0 0 rgba(255,255,255,0.4)', '0 0 0 8px rgba(255,255,255,0)', '0 0 0 0 rgba(255,255,255,0.4)']
-            } : {}}
-            transition={{ duration: 1.5, repeat: Infinity }}
           >
-            <span className={`font-bold text-white drop-shadow-sm ${isYou ? 'text-xs' : 'text-[9px]'}`}>
+            <span className="text-[9px] font-bold text-white drop-shadow-sm">
               {posNumber}
             </span>
           </motion.div>
         );
       })}
-
-      {/* Moving progress indicator along the track */}
-      <motion.div
-        className="absolute w-3 h-3 rounded-full bg-white shadow-lg shadow-white/50"
-        style={{
-          ...getPositionStyle(
-            Math.floor((progressPercent / 100) * relevantPositions.length),
-            relevantPositions.length
-          ),
-        }}
-        animate={{
-          opacity: [0.5, 1, 0.5],
-        }}
-        transition={{ duration: 1, repeat: Infinity }}
-      />
     </div>
   );
 }
