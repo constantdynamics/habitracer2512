@@ -346,6 +346,21 @@ export function Dashboard() {
                   const streak = streaks[habit.id] || 0;
                   const timer = activeTimers.find(t => t.habitId === habit.id);
 
+                  // Calculate stats for the tile
+                  const entryValues = habitEntries.map(e => e.value).filter(v => v > 0);
+                  const personalRecord = entryValues.length > 0
+                    ? (habit.direction === 'maximize' ? Math.max(...entryValues) : Math.min(...entryValues))
+                    : undefined;
+                  const averageValue = entryValues.length > 0
+                    ? entryValues.reduce((a, b) => a + b, 0) / entryValues.length
+                    : undefined;
+                  // Get last 5 entries for sparkline (sorted by date)
+                  const recentEntries = [...habitEntries]
+                    .sort((a, b) => b.createdAt - a.createdAt)
+                    .slice(0, 5)
+                    .map(e => e.value)
+                    .reverse();
+
                   return (
                     <RaceTile
                       key={habit.id}
@@ -354,6 +369,9 @@ export function Dashboard() {
                       todayEntry={todayEntry}
                       currentStreak={streak}
                       activeTimer={timer}
+                      personalRecord={personalRecord}
+                      averageValue={averageValue}
+                      recentEntries={recentEntries.length >= 2 ? recentEntries : undefined}
                       onQuickCheckIn={() => handleQuickCheckIn(habit.id)}
                       onStartTimer={() => handleStartTimer(habit.id)}
                       onPauseTimer={() => handlePauseTimer(habit.id)}
