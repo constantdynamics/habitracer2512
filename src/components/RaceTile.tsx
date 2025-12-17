@@ -33,6 +33,29 @@ function formatTimeDiff(diffMs: number): string {
   return `${prefix}${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+// Helper: get border color based on position (red -> yellow -> green)
+function getPositionBorderColor(position: number, totalPositions: number): string {
+  if (totalPositions <= 1) return '#22c55e'; // green
+
+  const ratio = (position - 1) / (totalPositions - 1); // 0 = first (green), 1 = last (red)
+
+  if (ratio <= 0.5) {
+    // Green to Yellow
+    const t = ratio * 2;
+    const r = Math.round(34 + (234 - 34) * t);
+    const g = Math.round(197 - (197 - 179) * t);
+    const b = Math.round(94 - (94 - 8) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Yellow to Red
+    const t = (ratio - 0.5) * 2;
+    const r = Math.round(234 + (239 - 234) * t);
+    const g = Math.round(179 - (179 - 68) * t);
+    const b = Math.round(8 + (68 - 8) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}
+
 // Helper: get color based on position relative to current
 function getPositionColor(position: number, totalPositions: number): { bg: string; text: string } {
   if (totalPositions <= 1) return { bg: 'bg-green-500', text: 'text-green-400' };
@@ -120,8 +143,6 @@ function ConfettiBurst({ show }: { show: boolean }) {
 }
 
 // Horizontal race track with proportional spacing
-// Left = worst (grey), Right = PR (green if beaten)
-// Beaten = green, Not beaten yet = grey, You = yellow/white pulsing
 function HorizontalRaceTrack({
   positions,
   currentPosition,
@@ -163,10 +184,8 @@ function HorizontalRaceTrack({
       const posNumber = originalIndex + 1;
       const xPercent = ((pos.value - minValue) / range) * 100;
 
-      // Beaten positions (worse than current) = green
-      // Not beaten yet (better than current) = grey
+      // Beaten = position number > current position (we passed them)
       const isBeaten = posNumber > currentPosition;
-      const isNotBeatenYet = posNumber < currentPosition;
 
       return {
         posNumber,
@@ -174,7 +193,6 @@ function HorizontalRaceTrack({
         xPercent,
         isPR: pos.isPersonalRecord,
         isBeaten,
-        isNotBeatenYet,
       };
     });
 
@@ -185,43 +203,52 @@ function HorizontalRaceTrack({
 
   if (positions.length === 0) {
     return (
-      <div className="w-full h-12 flex items-center justify-center">
+      <div className="w-full h-14 flex items-center justify-center">
         <div className="text-sm text-white/60">Eerste poging!</div>
       </div>
     );
   }
 
   return (
-    <div className="w-full px-1 py-4 relative h-14">
+    <div className="w-full px-1 relative h-16">
       {/* Track line */}
       <div className="absolute left-1 right-1 top-1/2 h-1.5 bg-white/20 rounded-full transform -translate-y-1/2" />
 
-      {/* Position blocks - larger for better readability */}
+      {/* Position blocks with medals */}
       {trackData.blocks.map((block) => {
         // Green = beaten (passed), Grey = not beaten yet
         const bgColor = block.isBeaten ? 'bg-green-500' : 'bg-gray-500';
-        const textColor = block.isBeaten ? 'text-white' : 'text-white';
+
+        // Medal for top 3
+        let medal = null;
+        if (block.posNumber === 1) medal = '🥇';
+        else if (block.posNumber === 2) medal = '🥈';
+        else if (block.posNumber === 3) medal = '🥉';
 
         return (
           <div
             key={`block-${block.posNumber}`}
-            className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2"
+            className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
             style={{ left: `calc(${block.xPercent}% * 0.85 + 7.5%)` }}
           >
+            {/* Medal above block */}
+            {medal && (
+              <span className="text-sm mb-0.5">{medal}</span>
+            )}
             <div
               className={`w-8 h-8 rounded-md ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-400' : ''}`}
             >
-              <span className={`text-xs font-bold ${textColor}`}>{block.posNumber}</span>
+              <span className="text-xs font-bold text-white">{block.posNumber}</span>
             </div>
           </div>
         );
       })}
 
-      {/* "You" marker - larger, pulsing yellow/white */}
+      {/* "You" marker - on the line, pulsing yellow/white */}
       <motion.div
         className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 z-10"
         style={{ left: `calc(${trackData.youPosition}% * 0.85 + 7.5%)` }}
-        animate={isNearNext ? { scale: [1, 1.15, 1] } : {}}
+        animate={isNearNext ? { scale: [1, 1.1, 1] } : {}}
         transition={{ duration: 0.3, repeat: Infinity }}
       >
         <motion.div
@@ -400,13 +427,10 @@ export function RaceTile({
 
   const showRaceTrack = activeTimer && isDuration;
 
-  // Dynamic border color based on state
-  let borderClass = 'border-white/10';
-  if (activeTimer) {
-    borderClass = 'border-yellow-500/50';
-  } else if (isCompleted) {
-    borderClass = 'border-vapor-cyan/30';
-  }
+  // Dynamic border color based on position
+  const borderColor = showRaceTrack
+    ? getPositionBorderColor(displayCurrentPosition, displayTotalPositions)
+    : (isCompleted ? 'rgba(0, 245, 212, 0.3)' : 'rgba(255, 255, 255, 0.1)');
 
   // Racing layout when timer is active
   if (showRaceTrack) {
@@ -414,45 +438,25 @@ export function RaceTile({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-3 border-2 ${borderClass} flex flex-col min-h-[200px]`}
+        className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-3 flex flex-col min-h-[220px]"
+        style={{ border: `3px solid ${borderColor}` }}
       >
         <ConfettiBurst show={showConfetti} />
 
-        {/* Top row: habit name centered */}
-        <div className="text-center mb-1" onClick={onClick}>
-          <span className="text-xl">{habit.emoji}</span>
-          <span className="text-sm font-semibold text-white ml-1">{habit.name}</span>
-        </div>
-
-        {/* Target info centered - white text */}
-        <div className="text-center mb-2">
-          {liveRaceData.distanceToNext !== null && liveRaceData.distanceToNext > 0 ? (
-            <div className={`${liveRaceData.isNearNext ? 'animate-pulse' : ''}`}>
-              <span className="text-white font-mono text-sm">
-                #{displayCurrentPosition - 1}: {formatTimeDiff(liveRaceData.distanceToNext)}
-              </span>
+        {/* Header: habit name left, timer right */}
+        <div className="flex items-start justify-between mb-1">
+          {/* Left: habit name and position */}
+          <div onClick={onClick}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl">{habit.emoji}</span>
+              <span className="text-sm font-semibold text-white">{habit.name}</span>
             </div>
-          ) : liveRaceData.isNewPR ? (
-            <span className="text-green-400 font-bold text-sm">🏁 Nieuwe PR!</span>
-          ) : null}
-          {liveRaceData.distanceToBest !== null && !liveRaceData.isNewPR && (
-            <div>
-              <span className="text-white/70 font-mono text-xs">
-                PR: {formatTimeDiff(liveRaceData.distanceToBest)}
-              </span>
+            <div className="text-white/60 text-xs mt-0.5">
+              {displayCurrentPosition} / {displayTotalPositions}
             </div>
-          )}
-        </div>
-
-        {/* Timer and position - side by side */}
-        <div className="flex items-center justify-between mb-2">
-          {/* Position counter - racing game style "7 / 10" */}
-          <div className="text-white font-bold text-lg">
-            <span className="text-2xl">{displayCurrentPosition}</span>
-            <span className="text-white/50 text-sm"> / {displayTotalPositions}</span>
           </div>
 
-          {/* Timer - right aligned, all white */}
+          {/* Right: timer */}
           {formatted && (
             <div className="font-mono text-2xl font-bold text-white text-right">
               {formatted.display}
@@ -461,7 +465,27 @@ export function RaceTile({
           )}
         </div>
 
-        {/* Horizontal race track - more space */}
+        {/* Target info - larger text */}
+        <div className="text-center my-2">
+          {liveRaceData.distanceToNext !== null && liveRaceData.distanceToNext > 0 ? (
+            <div className={`${liveRaceData.isNearNext ? 'animate-pulse' : ''}`}>
+              <span className="text-white font-mono text-lg font-bold">
+                #{displayCurrentPosition - 1}: {formatTimeDiff(liveRaceData.distanceToNext)}
+              </span>
+            </div>
+          ) : liveRaceData.isNewPR ? (
+            <span className="text-green-400 font-bold text-lg">🏁 Nieuwe PR!</span>
+          ) : null}
+          {liveRaceData.distanceToBest !== null && !liveRaceData.isNewPR && (
+            <div>
+              <span className="text-white font-mono text-base">
+                PR: {formatTimeDiff(liveRaceData.distanceToBest)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Horizontal race track */}
         <div className="flex-1 flex items-center">
           <HorizontalRaceTrack
             positions={displayPositions}
@@ -471,50 +495,54 @@ export function RaceTile({
           />
         </div>
 
-        {/* Action buttons - narrower */}
-        <div className="flex gap-2 mt-2">
+        {/* Action buttons - all equal size with text */}
+        <div className="grid grid-cols-3 gap-2 mt-2">
           {activeTimer.isRunning ? (
             <button
               onClick={(e) => { e.stopPropagation(); onPauseTimer(); }}
-              className="w-14 py-2 bg-yellow-500/20 rounded-lg text-yellow-400 flex items-center justify-center"
+              className="py-2.5 bg-yellow-500 rounded-lg text-white font-bold text-sm flex items-center justify-center gap-1"
             >
-              <Pause className="w-5 h-5" />
+              <Pause className="w-4 h-4" />
+              PAUSE
             </button>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onResumeTimer(); }}
-              className="w-14 py-2 bg-green-500/20 rounded-lg text-green-400 flex items-center justify-center"
+              className="py-2.5 bg-green-500 rounded-lg text-white font-bold text-sm flex items-center justify-center gap-1"
             >
-              <Play className="w-5 h-5" />
+              <Play className="w-4 h-4" />
+              START
             </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onSaveTimer(elapsedMs); }}
-            className="flex-1 py-2 bg-white/10 rounded-lg text-white flex items-center justify-center"
+            className="py-2.5 bg-red-500 rounded-lg text-white font-bold text-sm flex items-center justify-center gap-1"
           >
-            <Square className="w-5 h-5" />
+            <Square className="w-4 h-4" />
+            STOP
           </button>
           {showDeleteConfirm ? (
-            <>
+            <div className="flex gap-1">
               <button
                 onClick={(e) => { e.stopPropagation(); onDeleteTimer(); setShowDeleteConfirm(false); }}
-                className="w-14 py-2 bg-red-500 rounded-lg text-white font-semibold text-sm"
+                className="flex-1 py-2.5 bg-red-600 rounded-lg text-white font-bold text-xs"
               >
-                Ja
+                JA
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
-                className="w-14 py-2 bg-white/10 rounded-lg text-white/60 text-sm"
+                className="flex-1 py-2.5 bg-gray-600 rounded-lg text-white font-bold text-xs"
               >
-                Nee
+                NEE
               </button>
-            </>
+            </div>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
-              className="w-10 py-2 bg-red-500/20 rounded-lg text-red-400 flex items-center justify-center"
+              className="py-2.5 bg-gray-900 rounded-lg text-white font-bold text-sm flex items-center justify-center gap-1"
             >
               <Trash2 className="w-4 h-4" />
+              DELETE
             </button>
           )}
         </div>
@@ -527,7 +555,8 @@ export function RaceTile({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 border-2 ${borderClass} flex flex-col min-h-[200px]`}
+      className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 flex flex-col min-h-[200px]"
+      style={{ border: `2px solid ${borderColor}` }}
     >
       <ConfettiBurst show={showConfetti} />
 
@@ -622,10 +651,10 @@ export function RaceTile({
         ) : isDuration ? (
           <button
             onClick={(e) => { e.stopPropagation(); onStartTimer(); }}
-            className="flex-1 py-2.5 bg-green-500/20 rounded-lg text-green-400 text-sm font-semibold flex items-center justify-center gap-1.5"
+            className="flex-1 py-2.5 bg-green-500 rounded-lg text-white text-sm font-bold flex items-center justify-center gap-1.5"
           >
             <Play className="w-4 h-4" />
-            Start
+            START
           </button>
         ) : (
           <button
