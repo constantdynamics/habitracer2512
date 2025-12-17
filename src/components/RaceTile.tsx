@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Trash2, Check, ChevronUp, ChevronDown, Minus } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Play, Pause, Square, Trash2, Check } from 'lucide-react';
 import { ActiveTimer, Habit, RaceData, HabitEntry } from '../types';
 import { getElapsedMs, formatElapsedTime } from '../services/timerService';
 
@@ -33,51 +33,19 @@ function formatTimeDiff(diffMs: number): string {
   return `${prefix}${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Helper: get color based on position (green=leading, yellow=middle, red=behind)
-function getPositionColor(position: number, totalPositions: number): { bg: string; text: string; glow: string } {
-  if (totalPositions <= 1) return { bg: 'bg-green-500', text: 'text-green-400', glow: 'shadow-green-500/50' };
-
-  const ratio = (position - 1) / (totalPositions - 1); // 0 = first, 1 = last
-
-  if (ratio <= 0.33) {
-    return { bg: 'bg-green-500', text: 'text-green-400', glow: 'shadow-green-500/50' };
-  } else if (ratio <= 0.66) {
-    return { bg: 'bg-yellow-500', text: 'text-yellow-400', glow: 'shadow-yellow-500/50' };
-  } else {
-    return { bg: 'bg-red-500', text: 'text-red-400', glow: 'shadow-red-500/50' };
-  }
-}
-
-// Helper: get border gradient based on position
-function getPositionBorderStyle(position: number, totalPositions: number, progressPercent: number): React.CSSProperties {
-  if (totalPositions <= 1) {
-    return {
-      background: `conic-gradient(from 0deg, #22c55e 0deg, #22c55e ${progressPercent * 3.6}deg, transparent ${progressPercent * 3.6}deg)`,
-    };
-  }
+// Helper: get color based on position relative to current
+function getPositionColor(position: number, totalPositions: number): { bg: string; text: string } {
+  if (totalPositions <= 1) return { bg: 'bg-green-500', text: 'text-green-400' };
 
   const ratio = (position - 1) / (totalPositions - 1);
 
-  // Red -> Yellow -> Green gradient based on position
-  let startColor: string, endColor: string;
-
-  if (ratio <= 0.5) {
-    // Green to Yellow
-    const t = ratio * 2;
-    startColor = `rgb(${Math.round(34 + (234 - 34) * t)}, ${Math.round(197 - (197 - 179) * t)}, ${Math.round(94 - (94 - 8) * t)})`;
-    endColor = '#22c55e';
+  if (ratio <= 0.33) {
+    return { bg: 'bg-green-500', text: 'text-green-400' };
+  } else if (ratio <= 0.66) {
+    return { bg: 'bg-yellow-500', text: 'text-yellow-400' };
   } else {
-    // Yellow to Red
-    const t = (ratio - 0.5) * 2;
-    startColor = `rgb(${Math.round(234 + (239 - 234) * t)}, ${Math.round(179 - (179 - 68) * t)}, ${Math.round(8 + (68 - 8) * t)})`;
-    endColor = '#eab308';
+    return { bg: 'bg-red-500', text: 'text-red-400' };
   }
-
-  const progressDeg = progressPercent * 3.6;
-
-  return {
-    background: `conic-gradient(from 0deg, ${endColor} 0deg, ${startColor} ${progressDeg}deg, transparent ${progressDeg}deg)`,
-  };
 }
 
 // Mini sparkline component
@@ -151,293 +119,147 @@ function ConfettiBurst({ show }: { show: boolean }) {
   );
 }
 
-// Speed lines effect
-function SpeedLines({ active }: { active: boolean }) {
-  if (!active) return null;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl opacity-30">
-      {Array.from({ length: 6 }, (_, i) => (
-        <motion.div
-          key={i}
-          className="absolute h-[1px] bg-gradient-to-r from-transparent via-white to-transparent"
-          style={{
-            top: `${15 + i * 15}%`,
-            left: '-100%',
-            width: '50%',
-          }}
-          animate={{
-            left: ['−100%', '200%'],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: 'linear',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// Pac-Man Ghost SVG component for "you" marker
-function PacManGhost({ color, size }: { color: string; size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Ghost body */}
-      <path
-        d="M12 2C7.58 2 4 5.58 4 10v8c0 0 1.5-1.5 2.5-1.5S8 18 9.5 18s2-1.5 3-1.5 1.5 1.5 3 1.5 2-1.5 2.5-1.5 2.5 1.5 2.5 1.5v-8c0-4.42-3.58-8-8-8z"
-        fill={color}
-      />
-      {/* Eyes */}
-      <circle cx="9" cy="10" r="2" fill="white" />
-      <circle cx="15" cy="10" r="2" fill="white" />
-      <circle cx="9.5" cy="10.5" r="1" fill="#1a1a2e" />
-      <circle cx="15.5" cy="10.5" r="1" fill="#1a1a2e" />
-    </svg>
-  );
-}
-
-// Circuit track with position blocks
-function CircuitTrack({
+// Horizontal race track with proportional spacing
+// Left = worst (red), Right = PR (green), You = yellow/white pulsing
+function HorizontalRaceTrack({
   positions,
   currentPosition,
-  totalPositions,
-  progressPercent,
+  currentValue,
   isNearNext,
 }: {
   positions: RaceData['positions'];
   currentPosition: number;
-  totalPositions: number;
-  progressPercent: number;
+  currentValue: number;
   isNearNext: boolean;
 }) {
-  // Show only relevant positions: 2 ahead, current, 2 behind
-  const relevantPositions = useMemo(() => {
-    const result: { pos: RaceData['positions'][0] | null; index: number; isYou: boolean; isNextTarget: boolean }[] = [];
+  const MAX_BLOCKS = 5;
 
-    // Find positions around current
-    for (let i = Math.max(0, currentPosition - 3); i < Math.min(positions.length, currentPosition + 2); i++) {
-      if (positions[i]) {
-        result.push({
-          pos: positions[i],
-          index: i,
-          isYou: i + 1 === currentPosition,
-          isNextTarget: i + 1 === currentPosition - 1, // The position we're chasing
-        });
+  // Calculate which positions to show and their proportional positions
+  const trackData = useMemo(() => {
+    if (positions.length === 0) return { blocks: [], youPosition: 50 };
+
+    // Get all values including current attempt
+    const allValues = positions.map(p => p.value);
+    const minValue = Math.min(...allValues, currentValue);
+    const maxValue = Math.max(...allValues, currentValue);
+    const range = maxValue - minValue || 1;
+
+    // Select which positions to display (max 5)
+    let displayPositions = [...positions];
+    if (positions.length > MAX_BLOCKS) {
+      // Show: worst, some middle ones around current, best
+      const relevantIndices = new Set<number>();
+      relevantIndices.add(0); // Best (PR)
+      relevantIndices.add(positions.length - 1); // Worst
+
+      // Add positions around current
+      const currentIdx = currentPosition - 1;
+      for (let i = Math.max(0, currentIdx - 1); i <= Math.min(positions.length - 1, currentIdx + 1); i++) {
+        relevantIndices.add(i);
       }
+
+      // Convert to array and sort
+      const indices = Array.from(relevantIndices).sort((a, b) => a - b).slice(0, MAX_BLOCKS);
+      displayPositions = indices.map(i => positions[i]);
     }
 
-    // Add "you" marker if not in existing positions
-    if (!result.some(r => r.isYou) && currentPosition <= totalPositions) {
-      result.push({
-        pos: null,
-        index: currentPosition - 1,
-        isYou: true,
-        isNextTarget: false,
-      });
-      result.sort((a, b) => a.index - b.index);
-    }
+    // Calculate proportional x positions (0-100)
+    // Left = worst (highest value for maximize), Right = best (PR)
+    const blocks = displayPositions.map((pos) => {
+      const originalIndex = positions.findIndex(p => p.value === pos.value && p.date === pos.date);
+      const posNumber = originalIndex + 1;
 
-    return result.slice(0, 5);
-  }, [positions, currentPosition, totalPositions]);
+      // x position: 0 = worst, 100 = best
+      // For maximize: higher value = better = more to the right
+      const xPercent = ((pos.value - minValue) / range) * 100;
 
-  const getPositionStyle = (slotIndex: number, totalSlots: number): React.CSSProperties => {
-    const percentage = ((slotIndex + 0.5) / totalSlots) * 100;
+      const isBetterThanCurrent = posNumber < currentPosition;
+      const isWorseThanCurrent = posNumber > currentPosition;
 
-    // Distribute around perimeter
-    if (percentage < 25) {
-      const x = (percentage / 25) * 100;
-      return { top: '-14px', left: `${x}%`, transform: 'translateX(-50%)' };
-    } else if (percentage < 50) {
-      const y = ((percentage - 25) / 25) * 100;
-      return { top: `${y}%`, right: '-14px', transform: 'translateY(-50%)' };
-    } else if (percentage < 75) {
-      const x = 100 - ((percentage - 50) / 25) * 100;
-      return { bottom: '-14px', left: `${x}%`, transform: 'translateX(-50%)' };
-    } else {
-      const y = 100 - ((percentage - 75) / 25) * 100;
-      return { top: `${y}%`, left: '-14px', transform: 'translateY(-50%)' };
-    }
-  };
+      return {
+        posNumber,
+        value: pos.value,
+        xPercent,
+        isPR: pos.isPersonalRecord,
+        isBetterThanCurrent,
+        isWorseThanCurrent,
+      };
+    });
+
+    // Calculate "you" position
+    const youXPercent = ((currentValue - minValue) / range) * 100;
+
+    return { blocks, youPosition: youXPercent };
+  }, [positions, currentPosition, currentValue]);
+
+  if (positions.length === 0) {
+    return (
+      <div className="w-full h-10 flex items-center justify-center">
+        <div className="text-sm text-white/40">Eerste poging!</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-visible">
-      {/* Background track */}
-      <div
-        className="absolute inset-0 rounded-xl"
-        style={{ border: '3px solid rgba(255,255,255,0.1)' }}
-      />
+    <div className="w-full px-2 py-3 relative">
+      {/* Track line */}
+      <div className="absolute left-2 right-2 top-1/2 h-1 bg-white/10 rounded-full transform -translate-y-1/2" />
 
-      {/* Progress track with position-based color */}
-      <motion.div
-        className={`absolute inset-[-3px] rounded-xl overflow-hidden ${isNearNext ? 'animate-pulse' : ''}`}
+      {/* Gradient overlay on track */}
+      <div
+        className="absolute left-2 right-2 top-1/2 h-1 rounded-full transform -translate-y-1/2"
         style={{
-          ...getPositionBorderStyle(currentPosition, totalPositions, progressPercent),
-          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          WebkitMaskComposite: 'xor',
-          maskComposite: 'exclude',
-          padding: '3px',
+          background: 'linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)',
+          opacity: 0.3,
         }}
-        animate={isNearNext ? { opacity: [1, 0.7, 1] } : {}}
-        transition={{ duration: 0.5, repeat: Infinity }}
       />
 
       {/* Position blocks */}
-      {relevantPositions.map((item, slotIndex) => {
-        const posNumber = item.index + 1;
-        const isYou = item.isYou;
-        const isPR = item.pos?.isPersonalRecord;
-        const isBehind = posNumber > currentPosition;
-        const isAhead = posNumber < currentPosition;
-        const isNextTarget = item.isNextTarget;
-
-        const style = getPositionStyle(slotIndex, relevantPositions.length);
-
-        // "You" marker - Pac-Man Ghost style
-        if (isYou) {
-          return (
-            <motion.div
-              key={`pos-${posNumber}`}
-              className="absolute z-20 flex items-center justify-center"
-              style={style}
-              animate={{
-                scale: [1, 1.15, 1],
-                y: [0, -2, 0],
-              }}
-              transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative">
-                <PacManGhost color="#facc15" size={36} />
-                {/* Glow effect */}
-                <div
-                  className="absolute inset-0 rounded-full blur-md opacity-60"
-                  style={{ backgroundColor: '#facc15', transform: 'scale(0.8)' }}
-                />
-              </div>
-            </motion.div>
-          );
-        }
-
-        // Next target - "prey" that's about to be eaten
-        if (isNextTarget && isNearNext) {
-          return (
-            <motion.div
-              key={`pos-${posNumber}`}
-              className="absolute z-10 flex items-center justify-center"
-              style={style}
-              animate={{
-                scale: [1, 0.8, 1],
-                opacity: [1, 0.5, 1],
-              }}
-              transition={{ duration: 0.3, repeat: Infinity }}
-            >
-              <div className={`w-6 h-6 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-red-300 ${isPR ? 'ring-vapor-gold' : ''}`}>
-                <span className="text-[10px] font-bold text-white">
-                  {posNumber}
-                </span>
-              </div>
-              {/* Danger pulse ring */}
-              <motion.div
-                className="absolute w-8 h-8 rounded-full border-2 border-red-400"
-                animate={{
-                  scale: [1, 1.5],
-                  opacity: [0.8, 0],
-                }}
-                transition={{ duration: 0.8, repeat: Infinity }}
-              />
-            </motion.div>
-          );
-        }
-
-        // Regular position blocks
-        let bgColor = 'bg-green-500';
-        if (isAhead) bgColor = 'bg-red-500';
-        else if (isBehind) bgColor = 'bg-green-500';
+      {trackData.blocks.map((block) => {
+        let bgColor = 'bg-green-500'; // Better than current
+        if (block.isWorseThanCurrent) bgColor = 'bg-red-500';
 
         return (
-          <motion.div
-            key={`pos-${posNumber}`}
-            className={`absolute flex items-center justify-center shadow-lg ${bgColor} w-5 h-5 ${isPR ? 'ring-1 ring-vapor-gold' : ''} rounded`}
-            style={style}
+          <div
+            key={`block-${block.posNumber}`}
+            className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2"
+            style={{ left: `calc(${block.xPercent}% * 0.9 + 5%)` }}
           >
-            <span className="text-[9px] font-bold text-white drop-shadow-sm">
-              {posNumber}
-            </span>
-          </motion.div>
+            <div
+              className={`w-6 h-6 rounded ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-300' : ''}`}
+            >
+              <span className="text-[9px] font-bold text-white">{block.posNumber}</span>
+            </div>
+          </div>
         );
       })}
-    </div>
-  );
-}
 
-// Position change indicator with animation
-function PositionIndicator({
-  position,
-  totalPositions,
-  previousPosition,
-  isLeading,
-}: {
-  position: number;
-  totalPositions: number;
-  previousPosition: number | null;
-  isLeading: boolean;
-}) {
-  const posColors = getPositionColor(position, totalPositions);
-  const positionChanged = previousPosition !== null && previousPosition !== position;
-  const improved = previousPosition !== null && position < previousPosition;
-  const declined = previousPosition !== null && position > previousPosition;
-
-  return (
-    <div className="flex items-center gap-2">
-      <AnimatePresence mode="wait">
+      {/* "You" marker - larger, pulsing yellow/white */}
+      <motion.div
+        className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 z-10"
+        style={{ left: `calc(${trackData.youPosition}% * 0.9 + 5%)` }}
+        animate={isNearNext ? { scale: [1, 1.2, 1] } : {}}
+        transition={{ duration: 0.3, repeat: Infinity }}
+      >
         <motion.div
-          key={position}
-          initial={{ scale: 1.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.5, opacity: 0 }}
-          className={`${posColors.bg} rounded-lg px-3 py-1 shadow-lg ${posColors.glow}`}
+          className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+          animate={{
+            backgroundColor: ['#facc15', '#ffffff', '#facc15'],
+            boxShadow: [
+              '0 0 0 0 rgba(250, 204, 21, 0.4)',
+              '0 0 0 8px rgba(255, 255, 255, 0)',
+              '0 0 0 0 rgba(250, 204, 21, 0.4)',
+            ],
+          }}
+          transition={{ duration: 0.8, repeat: Infinity }}
         >
-          <span className="text-2xl font-black text-white">P{position}</span>
+          <span className="text-xs font-black text-gray-900">JIJ</span>
         </motion.div>
-      </AnimatePresence>
+      </motion.div>
 
-      {/* Position change arrow */}
-      {positionChanged && (
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex items-center"
-        >
-          {improved ? (
-            <ChevronUp className="w-5 h-5 text-green-400" />
-          ) : declined ? (
-            <ChevronDown className="w-5 h-5 text-red-400" />
-          ) : (
-            <Minus className="w-4 h-4 text-white/40" />
-          )}
-          {improved && previousPosition && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-xs text-green-400 font-medium"
-            >
-              P{previousPosition} → P{position}
-            </motion.span>
-          )}
-        </motion.div>
-      )}
-
-      {isLeading && (
-        <motion.span
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 0.5, repeat: Infinity }}
-          className="text-lg"
-        >
-          🏆
-        </motion.span>
-      )}
+      {/* Labels */}
+      <div className="absolute -bottom-4 left-2 text-[8px] text-red-400/60">slechtst</div>
+      <div className="absolute -bottom-4 right-2 text-[8px] text-green-400/60">PR</div>
     </div>
   );
 }
@@ -542,7 +364,6 @@ export function RaceTile({
 }: RaceTileProps) {
   const [elapsedMs, setElapsedMs] = useState(activeTimer ? getElapsedMs(activeTimer) : 0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [previousPosition, setPreviousPosition] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const lastPositionRef = useRef<number | null>(null);
 
@@ -593,7 +414,7 @@ export function RaceTile({
         distanceToBest: null,
         progressPercent: 0,
         isNearNext: false,
-        isNewPR: true, // First attempt is always a PR
+        isNewPR: true,
       };
     }
 
@@ -629,14 +450,12 @@ export function RaceTile({
           estimatedDate: undefined,
         };
 
-        // Calculate progress to next position
         const prevPos = positions[livePosition - 1];
         if (prevPos) {
           const prevValueMs = prevPos.value * 60 * 1000;
           const range = nextValueMs - prevValueMs;
           if (range > 0) {
             progressPercent = ((elapsedMs - prevValueMs) / range) * 100;
-            // Near next if within 10% of the gap
             isNearNext = progressPercent >= 90;
           }
         } else {
@@ -670,13 +489,10 @@ export function RaceTile({
     };
   }, [raceData, isDuration, activeTimer, currentMinutes, elapsedMs, habit.direction]);
 
-  // Track position changes for animations
+  // Track position changes for confetti
   useEffect(() => {
     const currentPos = liveRaceData.currentPosition;
     if (lastPositionRef.current !== null && lastPositionRef.current !== currentPos) {
-      setPreviousPosition(lastPositionRef.current);
-
-      // Show confetti when passing someone
       if (currentPos < lastPositionRef.current) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 1000);
@@ -689,16 +505,11 @@ export function RaceTile({
   const displayCurrentPosition = activeTimer && isDuration ? liveRaceData.currentPosition : (raceData?.currentPosition || 0);
   const displayTotalPositions = activeTimer && isDuration ? liveRaceData.totalPositions : (raceData?.totalPositions || 0);
 
-  const showCircuitTrack = activeTimer && isDuration;
-  const isTimerRunning = activeTimer?.isRunning;
+  const showRaceTrack = activeTimer && isDuration;
 
   // Dynamic border color based on state
-  let borderStyle: React.CSSProperties = {};
   let borderClass = 'border-white/10';
-
-  if (showCircuitTrack) {
-    borderClass = 'border-transparent';
-  } else if (activeTimer) {
+  if (activeTimer) {
     borderClass = 'border-yellow-500/50';
   } else if (isCompleted) {
     borderClass = 'border-vapor-cyan/30';
@@ -708,25 +519,10 @@ export function RaceTile({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 border-2 ${borderClass} flex flex-col min-h-[220px]`}
-      style={borderStyle}
+      className={`relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 border-2 ${borderClass} flex flex-col min-h-[200px]`}
     >
-      {/* Speed lines during active timer */}
-      <SpeedLines active={!!isTimerRunning} />
-
       {/* Confetti on position pass */}
       <ConfettiBurst show={showConfetti} />
-
-      {/* Circuit track visualization */}
-      {showCircuitTrack && displayPositions.length > 0 && (
-        <CircuitTrack
-          positions={displayPositions}
-          currentPosition={displayCurrentPosition}
-          totalPositions={displayTotalPositions}
-          progressPercent={liveRaceData.progressPercent}
-          isNearNext={liveRaceData.isNearNext}
-        />
-      )}
 
       {/* Header row */}
       <div className="flex items-start justify-between mb-2 relative z-10" onClick={onClick}>
@@ -735,22 +531,23 @@ export function RaceTile({
           <span className="text-base font-semibold text-white truncate">{habit.name}</span>
         </div>
 
-        {/* Position indicator in corner during race */}
-        {showCircuitTrack && (
-          <PositionIndicator
-            position={displayCurrentPosition}
-            totalPositions={displayTotalPositions}
-            previousPosition={previousPosition}
-            isLeading={displayCurrentPosition === 1}
-          />
+        {/* Position badge during race */}
+        {showRaceTrack && (
+          <div className={`px-2 py-0.5 rounded text-sm font-bold ${
+            displayCurrentPosition === 1 ? 'bg-green-500 text-white' :
+            displayCurrentPosition <= 3 ? 'bg-yellow-500 text-gray-900' :
+            'bg-red-500 text-white'
+          }`}>
+            P{displayCurrentPosition}
+          </div>
         )}
 
-        {!showCircuitTrack && currentStreak > 0 && (
+        {!showRaceTrack && currentStreak > 0 && (
           <span className="text-sm text-vapor-cyan whitespace-nowrap font-medium">🔥{currentStreak}</span>
         )}
       </div>
 
-      {/* Timer display with cycling-style time difference */}
+      {/* Timer display */}
       {activeTimer && formatted && (
         <div className="text-center mb-2 relative z-10">
           <div className="font-mono text-3xl font-bold text-white">
@@ -758,7 +555,7 @@ export function RaceTile({
             <span className="text-base text-vapor-cyan">{formatted.centis}</span>
           </div>
 
-          {/* Cycling-style time differences */}
+          {/* Time differences */}
           <div className="flex justify-center gap-4 text-sm mt-1">
             {liveRaceData.distanceToNext !== null && liveRaceData.distanceToNext > 0 && (
               <span className={`font-mono font-bold ${liveRaceData.isNearNext ? 'text-yellow-400 animate-pulse' : 'text-white/70'}`}>
@@ -774,8 +571,20 @@ export function RaceTile({
         </div>
       )}
 
+      {/* Horizontal race track during timer */}
+      {showRaceTrack && (
+        <div className="relative z-10 mb-2">
+          <HorizontalRaceTrack
+            positions={displayPositions}
+            currentPosition={displayCurrentPosition}
+            currentValue={currentMinutes}
+            isNearNext={liveRaceData.isNearNext}
+          />
+        </div>
+      )}
+
       {/* Motivational text */}
-      {showCircuitTrack && (
+      {showRaceTrack && (
         <div className="relative z-10 mb-2">
           <MotivationalText
             position={displayCurrentPosition}
@@ -787,10 +596,10 @@ export function RaceTile({
         </div>
       )}
 
-      {/* Center content area */}
+      {/* Center content area (when no timer) */}
       <div className="flex-1 flex items-center justify-center relative z-10" onClick={onClick}>
-        {/* Race blocks (when not using circuit) */}
-        {!showCircuitTrack && displayPositions.length > 0 && (
+        {/* Race blocks (when not timing) */}
+        {!showRaceTrack && displayPositions.length > 0 && (
           <div className="flex flex-col items-center">
             <div className="flex flex-wrap gap-1.5 mb-2 justify-center">
               {displayPositions.slice(0, 10).map((pos, index) => {
@@ -831,7 +640,7 @@ export function RaceTile({
       </div>
 
       {/* Stats strip */}
-      {(personalRecord || averageValue || currentStreak > 0) && !showCircuitTrack && (
+      {(personalRecord || averageValue || currentStreak > 0) && !showRaceTrack && (
         <div className="flex items-center justify-center gap-3 text-[10px] text-white/50 mb-2 relative z-10">
           {personalRecord && (
             <span>🏆 PR: {personalRecord.toFixed(1)}</span>
@@ -846,7 +655,7 @@ export function RaceTile({
       )}
 
       {/* Mini sparkline */}
-      {recentEntries && recentEntries.length >= 2 && !showCircuitTrack && (
+      {recentEntries && recentEntries.length >= 2 && !showRaceTrack && (
         <div className="h-4 mb-2 relative z-10">
           <Sparkline values={recentEntries} className="w-full h-full" />
         </div>
