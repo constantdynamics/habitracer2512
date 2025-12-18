@@ -404,28 +404,27 @@ function HorizontalRaceTrack({
         );
       })}
 
-      {/* "JIJ" marker - EXACT same height and positioning as other blocks */}
-      <motion.div
+      {/* "JIJ" marker - EXACT same structure as other blocks */}
+      <div
         className="absolute z-10"
         style={{
           left: `calc(${trackData.youPosition}% * 0.85 + 7.5%)`,
           top: '50%',
           transform: `translateX(-50%) translateY(-${BLOCK_HEIGHT / 2}px)`,
         }}
-        animate={isNearNext ? { scale: [1, 1.1, 1] } : {}}
-        transition={{ duration: 0.3, repeat: Infinity }}
       >
         <motion.div
           className="w-10 rounded-md flex items-center justify-center shadow-lg border-2 border-white"
           style={{ height: `${BLOCK_HEIGHT}px` }}
           animate={{
             backgroundColor: ['#facc15', '#ffffff', '#facc15'],
+            scale: isNearNext ? [1, 1.1, 1] : 1,
           }}
           transition={{ duration: 0.6, repeat: Infinity }}
         >
           <span className="text-xs font-black text-gray-900">JIJ</span>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 }
