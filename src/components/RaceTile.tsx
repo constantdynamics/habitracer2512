@@ -81,13 +81,18 @@ function getPositionColor(position: number, totalPositions: number): { bg: strin
 }
 
 // GO! Animation component (Lichtenstein style explosion)
-// Uses simple div with CSS animation - more reliable than framer-motion for timed overlays
+// Tracks when show changes from false to true to trigger animation once
 function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => void }) {
   const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const hasTriggeredRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (show) {
+    // Only trigger when show becomes true AND we haven't triggered yet
+    if (show && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
       setVisible(true);
       setFadeOut(false);
 
@@ -100,7 +105,7 @@ function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => vo
       const hideTimer = setTimeout(() => {
         setVisible(false);
         setFadeOut(false);
-        onComplete();
+        onCompleteRef.current();
       }, 1200);
 
       return () => {
@@ -108,7 +113,12 @@ function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => vo
         clearTimeout(hideTimer);
       };
     }
-  }, [show, onComplete]);
+
+    // Reset when show becomes false
+    if (!show) {
+      hasTriggeredRef.current = false;
+    }
+  }, [show]);
 
   if (!visible) return null;
 
@@ -145,7 +155,7 @@ function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => vo
 }
 
 // FINISH Animation component
-// Uses simple CSS transitions for reliability
+// Tracks when show changes from false to true to trigger animation once
 function FinishAnimation({
   show,
   time,
@@ -161,9 +171,14 @@ function FinishAnimation({
 }) {
   const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const hasTriggeredRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (show) {
+    // Only trigger when show becomes true AND we haven't triggered yet
+    if (show && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
       setVisible(true);
       setFadeOut(false);
 
@@ -176,7 +191,7 @@ function FinishAnimation({
       const hideTimer = setTimeout(() => {
         setVisible(false);
         setFadeOut(false);
-        onComplete();
+        onCompleteRef.current();
       }, 3000);
 
       return () => {
@@ -184,7 +199,12 @@ function FinishAnimation({
         clearTimeout(hideTimer);
       };
     }
-  }, [show, onComplete]);
+
+    // Reset when show becomes false
+    if (!show) {
+      hasTriggeredRef.current = false;
+    }
+  }, [show]);
 
   if (!visible) return null;
 
