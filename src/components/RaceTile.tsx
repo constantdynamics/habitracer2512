@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Play, Pause, Square, Trash2, Check } from 'lucide-react';
 import { ActiveTimer, Habit, RaceData, HabitEntry } from '../types';
 import { getElapsedMs, formatElapsedTime } from '../services/timerService';
@@ -81,67 +81,71 @@ function getPositionColor(position: number, totalPositions: number): { bg: strin
 }
 
 // GO! Animation component (Lichtenstein style explosion)
+// Uses simple div with CSS animation - more reliable than framer-motion for timed overlays
 function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => void }) {
+  const [visible, setVisible] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+
   useEffect(() => {
     if (show) {
-      const timer = setTimeout(onComplete, 1500);
-      return () => clearTimeout(timer);
+      setVisible(true);
+      setFadeOut(false);
+
+      // Start fade out after 800ms
+      const fadeTimer = setTimeout(() => {
+        setFadeOut(true);
+      }, 800);
+
+      // Fully hide after 1200ms and call onComplete
+      const hideTimer = setTimeout(() => {
+        setVisible(false);
+        setFadeOut(false);
+        onComplete();
+      }, 1200);
+
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [show, onComplete]);
 
+  if (!visible) return null;
+
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/80"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="relative"
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 2, opacity: 0 }}
-            transition={{ type: 'spring', damping: 10, stiffness: 200 }}
-          >
-            {/* Explosion rays */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-4 h-20 bg-yellow-400"
-                  style={{
-                    transform: `rotate(${i * 30}deg)`,
-                    transformOrigin: 'center 60px',
-                  }}
-                  initial={{ scaleY: 0 }}
-                  animate={{ scaleY: 1 }}
-                  transition={{ delay: 0.1 + i * 0.02 }}
-                />
-              ))}
-            </div>
-            {/* GO text */}
-            <motion.div
-              className="relative z-10 text-7xl font-black text-yellow-400 drop-shadow-lg"
+    <div
+      className={`absolute inset-0 z-50 flex items-center justify-center bg-black/80 pointer-events-none transition-opacity duration-300 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+    >
+      <div className="relative">
+        {/* Explosion rays */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-4 h-16 bg-yellow-400 origin-bottom"
               style={{
-                textShadow: '4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
-                fontFamily: 'Impact, sans-serif',
+                transform: `rotate(${i * 30}deg) translateY(-40px)`,
               }}
-              initial={{ scale: 0.5 }}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.3 }}
-            >
-              GO!
-            </motion.div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            />
+          ))}
+        </div>
+        {/* GO text */}
+        <div
+          className="relative z-10 text-7xl font-black text-yellow-400"
+          style={{
+            textShadow: '4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
+            fontFamily: 'Impact, sans-serif',
+          }}
+        >
+          GO!
+        </div>
+      </div>
+    </div>
   );
 }
 
 // FINISH Animation component
+// Uses simple CSS transitions for reliability
 function FinishAnimation({
   show,
   time,
@@ -155,65 +159,64 @@ function FinishAnimation({
   totalPositions: number;
   onComplete: () => void;
 }) {
+  const [visible, setVisible] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+
   useEffect(() => {
     if (show) {
-      const timer = setTimeout(onComplete, 3000);
-      return () => clearTimeout(timer);
+      setVisible(true);
+      setFadeOut(false);
+
+      // Start fade out after 2500ms
+      const fadeTimer = setTimeout(() => {
+        setFadeOut(true);
+      }, 2500);
+
+      // Fully hide after 3000ms and call onComplete
+      const hideTimer = setTimeout(() => {
+        setVisible(false);
+        setFadeOut(false);
+        onComplete();
+      }, 3000);
+
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [show, onComplete]);
 
+  if (!visible) return null;
+
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="text-5xl font-black text-white mb-2"
-            style={{
-              textShadow: '3px 3px 0 #22c55e',
-              fontFamily: 'Impact, sans-serif',
-            }}
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            FINISH!
-          </motion.div>
-          <motion.div
-            className="text-4xl font-mono font-bold text-yellow-400 mb-2"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.5, type: 'spring' }}
-          >
-            {time}
-          </motion.div>
-          <motion.div
-            className="text-2xl font-bold text-white mb-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-          >
-            #{position} / {totalPositions}
-          </motion.div>
-          <motion.div
-            className="text-3xl font-black text-green-400"
-            style={{
-              textShadow: '2px 2px 0 #000',
-              fontFamily: 'Impact, sans-serif',
-            }}
-            initial={{ scale: 0, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 1.2, type: 'spring' }}
-          >
-            GOOD JOB!
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 pointer-events-none transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+    >
+      <div
+        className="text-5xl font-black text-white mb-2"
+        style={{
+          textShadow: '3px 3px 0 #22c55e',
+          fontFamily: 'Impact, sans-serif',
+        }}
+      >
+        FINISH!
+      </div>
+      <div className="text-4xl font-mono font-bold text-yellow-400 mb-2">
+        {time}
+      </div>
+      <div className="text-2xl font-bold text-white mb-4">
+        #{position} / {totalPositions}
+      </div>
+      <div
+        className="text-3xl font-black text-green-400"
+        style={{
+          textShadow: '2px 2px 0 #000',
+          fontFamily: 'Impact, sans-serif',
+        }}
+      >
+        GOOD JOB!
+      </div>
+    </div>
   );
 }
 
@@ -254,6 +257,8 @@ function ConfettiBurst({ show }: { show: boolean }) {
 }
 
 // Horizontal race track with proportional spacing
+// All blocks are EXACTLY 32px (h-8) tall and centered on the track line
+// Medals float above but don't affect block positioning
 function HorizontalRaceTrack({
   positions,
   currentPosition,
@@ -266,6 +271,7 @@ function HorizontalRaceTrack({
   isNearNext: boolean;
 }) {
   const MAX_BLOCKS = 5;
+  const BLOCK_HEIGHT = 32; // h-8 = 32px
 
   const trackData = useMemo(() => {
     if (positions.length === 0) return { blocks: [], youPosition: 50 };
@@ -324,11 +330,14 @@ function HorizontalRaceTrack({
   }
 
   return (
-    <div className="w-full px-1 relative h-16">
-      {/* Track line */}
-      <div className="absolute left-1 right-1 top-1/2 h-1.5 bg-white/20 rounded-full transform -translate-y-1/2" />
+    <div className="w-full px-2 relative" style={{ height: '70px' }}>
+      {/* Track line - in the middle */}
+      <div
+        className="absolute left-2 right-2 h-1.5 bg-white/20 rounded-full"
+        style={{ top: '50%', transform: 'translateY(-50%)' }}
+      />
 
-      {/* Position blocks with medals - all bottom-aligned */}
+      {/* Position blocks - ALL centered on track line */}
       {trackData.blocks.map((block) => {
         // Don't show block for current position (JIJ marker shows instead)
         if (block.isCurrentPos) return null;
@@ -337,7 +346,7 @@ function HorizontalRaceTrack({
         const bgColor = block.isBeaten ? 'bg-green-500' : 'bg-gray-500';
 
         // Medal for top 3
-        let medal = null;
+        let medal: string | null = null;
         if (block.posNumber === 1) medal = '🥇';
         else if (block.posNumber === 2) medal = '🥈';
         else if (block.posNumber === 3) medal = '🥉';
@@ -345,37 +354,50 @@ function HorizontalRaceTrack({
         return (
           <div
             key={`block-${block.posNumber}`}
-            className="absolute top-1/2 transform -translate-x-1/2 flex flex-col items-center"
+            className="absolute"
             style={{
               left: `calc(${block.xPercent}% * 0.85 + 7.5%)`,
-              // Position so block is centered on line, medal is above
-              transform: 'translateX(-50%) translateY(-50%)',
+              top: '50%',
+              transform: `translateX(-50%) translateY(-${BLOCK_HEIGHT / 2}px)`,
             }}
           >
-            <div className="flex flex-col items-center">
-              {/* Medal above block */}
-              {medal && (
-                <span className="text-xs leading-none mb-0.5">{medal}</span>
-              )}
-              <div
-                className={`w-8 h-8 rounded-md ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-400' : ''}`}
+            {/* Medal - positioned above block with absolute */}
+            {medal && (
+              <span
+                className="absolute left-1/2 text-sm"
+                style={{
+                  transform: 'translateX(-50%)',
+                  top: '-18px',
+                }}
               >
-                <span className="text-xs font-bold text-white">{block.posNumber}</span>
-              </div>
+                {medal}
+              </span>
+            )}
+            {/* Block - fixed size */}
+            <div
+              className={`w-8 rounded-md ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-400' : ''}`}
+              style={{ height: `${BLOCK_HEIGHT}px` }}
+            >
+              <span className="text-xs font-bold text-white">{block.posNumber}</span>
             </div>
           </div>
         );
       })}
 
-      {/* "You" marker - same height as other blocks */}
+      {/* "JIJ" marker - EXACT same height and positioning as other blocks */}
       <motion.div
-        className="absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10"
-        style={{ left: `calc(${trackData.youPosition}% * 0.85 + 7.5%)` }}
+        className="absolute z-10"
+        style={{
+          left: `calc(${trackData.youPosition}% * 0.85 + 7.5%)`,
+          top: '50%',
+          transform: `translateX(-50%) translateY(-${BLOCK_HEIGHT / 2}px)`,
+        }}
         animate={isNearNext ? { scale: [1, 1.1, 1] } : {}}
         transition={{ duration: 0.3, repeat: Infinity }}
       >
         <motion.div
-          className="w-10 h-8 rounded-md flex items-center justify-center shadow-lg border-2 border-white"
+          className="w-10 rounded-md flex items-center justify-center shadow-lg border-2 border-white"
+          style={{ height: `${BLOCK_HEIGHT}px` }}
           animate={{
             backgroundColor: ['#facc15', '#ffffff', '#facc15'],
           }}
