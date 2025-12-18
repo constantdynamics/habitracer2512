@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Trash2, Check } from 'lucide-react';
 import { ActiveTimer, Habit, RaceData, HabitEntry } from '../types';
 import { getElapsedMs, formatElapsedTime } from '../services/timerService';
@@ -31,6 +31,15 @@ function formatTimeDiff(diffMs: number): string {
   const seconds = totalSeconds % 60;
   const prefix = isNegative ? '-' : '+';
   return `${prefix}${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Helper: format minutes to hh:mm:ss
+function formatMinutesToHMS(minutes: number): string {
+  const totalSeconds = Math.round(minutes * 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Helper: get border color based on position (red -> yellow -> green)
@@ -71,38 +80,140 @@ function getPositionColor(position: number, totalPositions: number): { bg: strin
   }
 }
 
-// Mini sparkline component
-function Sparkline({ values, className }: { values: number[]; className?: string }) {
-  if (values.length < 2) return null;
-
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
-
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * 100;
-    const y = 100 - ((v - min) / range) * 100;
-    return `${x},${y}`;
-  }).join(' ');
+// GO! Animation component (Lichtenstein style explosion)
+function GoAnimation({ show, onComplete }: { show: boolean; onComplete: () => void }) {
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(onComplete, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onComplete]);
 
   return (
-    <svg viewBox="0 0 100 100" className={`${className} overflow-visible`} preserveAspectRatio="none">
-      <polyline
-        points={points}
-        fill="none"
-        stroke="url(#sparkGradient)"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <defs>
-        <linearGradient id="sparkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#ef4444" />
-          <stop offset="50%" stopColor="#eab308" />
-          <stop offset="100%" stopColor="#22c55e" />
-        </linearGradient>
-      </defs>
-    </svg>
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/80"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="relative"
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 2, opacity: 0 }}
+            transition={{ type: 'spring', damping: 10, stiffness: 200 }}
+          >
+            {/* Explosion rays */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-4 h-20 bg-yellow-400"
+                  style={{
+                    transform: `rotate(${i * 30}deg)`,
+                    transformOrigin: 'center 60px',
+                  }}
+                  initial={{ scaleY: 0 }}
+                  animate={{ scaleY: 1 }}
+                  transition={{ delay: 0.1 + i * 0.02 }}
+                />
+              ))}
+            </div>
+            {/* GO text */}
+            <motion.div
+              className="relative z-10 text-7xl font-black text-yellow-400 drop-shadow-lg"
+              style={{
+                textShadow: '4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
+                fontFamily: 'Impact, sans-serif',
+              }}
+              initial={{ scale: 0.5 }}
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 0.3 }}
+            >
+              GO!
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// FINISH Animation component
+function FinishAnimation({
+  show,
+  time,
+  position,
+  totalPositions,
+  onComplete
+}: {
+  show: boolean;
+  time: string;
+  position: number;
+  totalPositions: number;
+  onComplete: () => void;
+}) {
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(onComplete, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onComplete]);
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="text-5xl font-black text-white mb-2"
+            style={{
+              textShadow: '3px 3px 0 #22c55e',
+              fontFamily: 'Impact, sans-serif',
+            }}
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            FINISH!
+          </motion.div>
+          <motion.div
+            className="text-4xl font-mono font-bold text-yellow-400 mb-2"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.5, type: 'spring' }}
+          >
+            {time}
+          </motion.div>
+          <motion.div
+            className="text-2xl font-bold text-white mb-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+          >
+            #{position} / {totalPositions}
+          </motion.div>
+          <motion.div
+            className="text-3xl font-black text-green-400"
+            style={{
+              textShadow: '2px 2px 0 #000',
+              fontFamily: 'Impact, sans-serif',
+            }}
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 1.2, type: 'spring' }}
+          >
+            GOOD JOB!
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -186,6 +297,8 @@ function HorizontalRaceTrack({
 
       // Beaten = position number > current position (we passed them)
       const isBeaten = posNumber > currentPosition;
+      // Skip if this is the current position (we show JIJ instead)
+      const isCurrentPos = posNumber === currentPosition;
 
       return {
         posNumber,
@@ -193,6 +306,7 @@ function HorizontalRaceTrack({
         xPercent,
         isPR: pos.isPersonalRecord,
         isBeaten,
+        isCurrentPos,
       };
     });
 
@@ -214,8 +328,11 @@ function HorizontalRaceTrack({
       {/* Track line */}
       <div className="absolute left-1 right-1 top-1/2 h-1.5 bg-white/20 rounded-full transform -translate-y-1/2" />
 
-      {/* Position blocks with medals */}
+      {/* Position blocks with medals - all bottom-aligned */}
       {trackData.blocks.map((block) => {
+        // Don't show block for current position (JIJ marker shows instead)
+        if (block.isCurrentPos) return null;
+
         // Green = beaten (passed), Grey = not beaten yet
         const bgColor = block.isBeaten ? 'bg-green-500' : 'bg-gray-500';
 
@@ -228,37 +345,43 @@ function HorizontalRaceTrack({
         return (
           <div
             key={`block-${block.posNumber}`}
-            className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
-            style={{ left: `calc(${block.xPercent}% * 0.85 + 7.5%)` }}
+            className="absolute top-1/2 transform -translate-x-1/2 flex flex-col items-center"
+            style={{
+              left: `calc(${block.xPercent}% * 0.85 + 7.5%)`,
+              // Position so block is centered on line, medal is above
+              transform: 'translateX(-50%) translateY(-50%)',
+            }}
           >
-            {/* Medal above block */}
-            {medal && (
-              <span className="text-sm mb-0.5">{medal}</span>
-            )}
-            <div
-              className={`w-8 h-8 rounded-md ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-400' : ''}`}
-            >
-              <span className="text-xs font-bold text-white">{block.posNumber}</span>
+            <div className="flex flex-col items-center">
+              {/* Medal above block */}
+              {medal && (
+                <span className="text-xs leading-none mb-0.5">{medal}</span>
+              )}
+              <div
+                className={`w-8 h-8 rounded-md ${bgColor} flex items-center justify-center shadow-md ${block.isPR ? 'ring-2 ring-yellow-400' : ''}`}
+              >
+                <span className="text-xs font-bold text-white">{block.posNumber}</span>
+              </div>
             </div>
           </div>
         );
       })}
 
-      {/* "You" marker - on the line, pulsing yellow/white */}
+      {/* "You" marker - same height as other blocks */}
       <motion.div
-        className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 z-10"
+        className="absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10"
         style={{ left: `calc(${trackData.youPosition}% * 0.85 + 7.5%)` }}
         animate={isNearNext ? { scale: [1, 1.1, 1] } : {}}
         transition={{ duration: 0.3, repeat: Infinity }}
       >
         <motion.div
-          className="w-10 h-10 rounded-md flex items-center justify-center shadow-lg border-2 border-white"
+          className="w-10 h-8 rounded-md flex items-center justify-center shadow-lg border-2 border-white"
           animate={{
             backgroundColor: ['#facc15', '#ffffff', '#facc15'],
           }}
           transition={{ duration: 0.6, repeat: Infinity }}
         >
-          <span className="text-sm font-black text-gray-900">JIJ</span>
+          <span className="text-xs font-black text-gray-900">JIJ</span>
         </motion.div>
       </motion.div>
     </div>
@@ -273,7 +396,6 @@ export function RaceTile({
   activeTimer,
   personalRecord,
   averageValue,
-  recentEntries,
   onQuickCheckIn,
   onStartTimer,
   onPauseTimer,
@@ -285,6 +407,9 @@ export function RaceTile({
   const [elapsedMs, setElapsedMs] = useState(activeTimer ? getElapsedMs(activeTimer) : 0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showGoAnimation, setShowGoAnimation] = useState(false);
+  const [showFinishAnimation, setShowFinishAnimation] = useState(false);
+  const [finishData, setFinishData] = useState({ time: '', position: 0, totalPositions: 0 });
   const lastPositionRef = useRef<number | null>(null);
 
   const isDuration = habit.type === 'quantifiable' && habit.metricType === 'duration';
@@ -432,15 +557,41 @@ export function RaceTile({
     ? getPositionBorderColor(displayCurrentPosition, displayTotalPositions)
     : (isCompleted ? 'rgba(0, 245, 212, 0.3)' : 'rgba(255, 255, 255, 0.1)');
 
+  // Handle start with GO animation
+  const handleStart = () => {
+    setShowGoAnimation(true);
+    onStartTimer();
+  };
+
+  // Handle stop with FINISH animation
+  const handleStop = () => {
+    const timeStr = formatted ? `${formatted.display}${formatted.centis}` : '00:00.00';
+    setFinishData({
+      time: timeStr,
+      position: displayCurrentPosition,
+      totalPositions: displayTotalPositions,
+    });
+    setShowFinishAnimation(true);
+    onSaveTimer(elapsedMs);
+  };
+
   // Racing layout when timer is active
   if (showRaceTrack) {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-3 flex flex-col min-h-[220px]"
+        className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-3 flex flex-col min-h-[220px] overflow-hidden"
         style={{ border: `3px solid ${borderColor}` }}
       >
+        <GoAnimation show={showGoAnimation} onComplete={() => setShowGoAnimation(false)} />
+        <FinishAnimation
+          show={showFinishAnimation}
+          time={finishData.time}
+          position={finishData.position}
+          totalPositions={finishData.totalPositions}
+          onComplete={() => setShowFinishAnimation(false)}
+        />
         <ConfettiBurst show={showConfetti} />
 
         {/* Header: habit name left, timer right */}
@@ -465,20 +616,20 @@ export function RaceTile({
           )}
         </div>
 
-        {/* Target info - larger text */}
+        {/* Target info - LARGER text */}
         <div className="text-center my-2">
           {liveRaceData.distanceToNext !== null && liveRaceData.distanceToNext > 0 ? (
             <div className={`${liveRaceData.isNearNext ? 'animate-pulse' : ''}`}>
-              <span className="text-white font-mono text-lg font-bold">
+              <span className="text-white font-mono text-2xl font-bold">
                 #{displayCurrentPosition - 1}: {formatTimeDiff(liveRaceData.distanceToNext)}
               </span>
             </div>
           ) : liveRaceData.isNewPR ? (
-            <span className="text-green-400 font-bold text-lg">🏁 Nieuwe PR!</span>
+            <span className="text-green-400 font-bold text-2xl">🏁 NIEUW PR!</span>
           ) : null}
           {liveRaceData.distanceToBest !== null && !liveRaceData.isNewPR && (
             <div>
-              <span className="text-white font-mono text-base">
+              <span className="text-white font-mono text-xl">
                 PR: {formatTimeDiff(liveRaceData.distanceToBest)}
               </span>
             </div>
@@ -515,7 +666,7 @@ export function RaceTile({
             </button>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); onSaveTimer(elapsedMs); }}
+            onClick={(e) => { e.stopPropagation(); handleStop(); }}
             className="py-2.5 bg-red-500 rounded-lg text-white font-bold text-sm flex items-center justify-center gap-1"
           >
             <Square className="w-4 h-4" />
@@ -555,9 +706,17 @@ export function RaceTile({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 flex flex-col min-h-[200px]"
+      className="relative bg-gradient-to-br from-vapor-dark/90 to-vapor-darker/90 rounded-xl p-4 flex flex-col min-h-[200px] overflow-hidden"
       style={{ border: `2px solid ${borderColor}` }}
     >
+      <GoAnimation show={showGoAnimation} onComplete={() => setShowGoAnimation(false)} />
+      <FinishAnimation
+        show={showFinishAnimation}
+        time={finishData.time}
+        position={finishData.position}
+        totalPositions={finishData.totalPositions}
+        onComplete={() => setShowFinishAnimation(false)}
+      />
       <ConfettiBurst show={showConfetti} />
 
       {/* Header row */}
@@ -612,25 +771,18 @@ export function RaceTile({
         )}
       </div>
 
-      {/* Stats strip */}
+      {/* Stats strip - with hh:mm:ss format */}
       {(personalRecord || averageValue || currentStreak > 0) && (
         <div className="flex items-center justify-center gap-3 text-[10px] text-white/50 mb-2 relative z-10">
           {personalRecord && (
-            <span>🏆 PR: {personalRecord.toFixed(1)}</span>
+            <span>🏆 PR: {formatMinutesToHMS(personalRecord)}</span>
           )}
           {averageValue && (
-            <span>⚡ Gem: {averageValue.toFixed(1)}</span>
+            <span>⚡ Gem: {formatMinutesToHMS(averageValue)}</span>
           )}
           {currentStreak > 0 && (
             <span>🔥 {currentStreak}d</span>
           )}
-        </div>
-      )}
-
-      {/* Mini sparkline */}
-      {recentEntries && recentEntries.length >= 2 && (
-        <div className="h-4 mb-2 relative z-10">
-          <Sparkline values={recentEntries} className="w-full h-full" />
         </div>
       )}
 
@@ -650,7 +802,7 @@ export function RaceTile({
           </button>
         ) : isDuration ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onStartTimer(); }}
+            onClick={(e) => { e.stopPropagation(); handleStart(); }}
             className="flex-1 py-2.5 bg-green-500 rounded-lg text-white text-sm font-bold flex items-center justify-center gap-1.5"
           >
             <Play className="w-4 h-4" />
